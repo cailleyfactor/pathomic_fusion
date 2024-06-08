@@ -262,33 +262,33 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
 def unfreeze_unimodal(opt, model, epoch):
     if opt.mode == 'graphomic':
         if epoch == 5:
-            dfs_unfreeze(model.module.omic_net)
+            dfs_unfreeze(model.omic_net)
             print("Unfreezing Omic")
         if epoch == 5:
-            dfs_unfreeze(model.module.grph_net)
+            dfs_unfreeze(model.grph_net)
             print("Unfreezing Graph")
     elif opt.mode == 'pathomic':
         if epoch == 5:
-            dfs_unfreeze(model.module.omic_net)
+            dfs_unfreeze(model.omic_net)
             print("Unfreezing Omic")
     elif opt.mode == 'pathgraph':
         if epoch == 5:
-            dfs_unfreeze(model.module.grph_net)
+            dfs_unfreeze(model.grph_net)
             print("Unfreezing Graph")
     elif opt.mode == "pathgraphomic":
         if epoch == 5:
-            dfs_unfreeze(model.module.omic_net)
+            dfs_unfreeze(model.omic_net)
             print("Unfreezing Omic")
         if epoch == 5:
-            dfs_unfreeze(model.module.grph_net)
+            dfs_unfreeze(model.grph_net)
             print("Unfreezing Graph")
     elif opt.mode == "omicomic":
         if epoch == 5:
-            dfs_unfreeze(model.module.omic_net)
+            dfs_unfreeze(model.omic_net)
             print("Unfreezing Omic")
     elif opt.mode == "graphgraph":
         if epoch == 5:
-            dfs_unfreeze(model.module.grph_net)
+            dfs_unfreeze(model.grph_net)
             print("Unfreezing Graph")
 
 

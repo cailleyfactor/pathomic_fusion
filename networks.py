@@ -169,7 +169,7 @@ def define_trifusion(fusion_type, skip=1, use_bilinear=1, gate1=1, gate2=1, gate
 class MaxNet(nn.Module):
     def __init__(self, input_dim=80, omic_dim=32, dropout_rate=0.25, act=None, label_dim=1, init_max=True):
         super(MaxNet, self).__init__()
-        hidden = [64, 48, 48, 32]
+        hidden = [64, 48, 32, 32]
         self.act = act
 
         encoder1 = nn.Sequential(
@@ -182,19 +182,17 @@ class MaxNet(nn.Module):
             nn.ELU(),
             nn.AlphaDropout(p=dropout_rate, inplace=False))
         
-        # encoder3 = nn.Sequential(
-        #     nn.Linear(hidden[1], hidden[2]),
-        #     nn.ELU(),
-        #     nn.AlphaDropout(p=dropout_rate, inplace=False))
+        encoder3 = nn.Sequential(
+            nn.Linear(hidden[1], hidden[2]),
+            nn.ELU(),
+            nn.AlphaDropout(p=dropout_rate, inplace=False))
 
         encoder4 = nn.Sequential(
             nn.Linear(hidden[2], omic_dim),
             nn.ELU(),
             nn.AlphaDropout(p=dropout_rate, inplace=False))
         
-        # self.encoder = nn.Sequential(encoder1, encoder2, encoder3, encoder4)
-        self.encoder = nn.Sequential(encoder1, encoder2,  encoder4)
-
+        self.encoder = nn.Sequential(encoder1, encoder2, encoder3, encoder4)
         self.classifier = nn.Sequential(nn.Linear(omic_dim, label_dim))
 
         if init_max: init_max_weights(self)
@@ -481,7 +479,7 @@ class GraphomicNet(nn.Module):
 class PathomicNet(nn.Module):
     def __init__(self, opt, act, k):
         super(PathomicNet, self).__init__()
-        self.path_net = PathNet(features = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim), path_dim=opt.path_dim, num_classes=32)
+        self.path_net = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim)
         self.omic_net = MaxNet(input_dim=opt.input_size_omic, omic_dim=opt.omic_dim, dropout_rate=opt.dropout_rate, act=act, label_dim=opt.label_dim, init_max=False)
 
         if k is not None:
@@ -535,7 +533,7 @@ class PathgraphomicNet(nn.Module):
         super(PathgraphomicNet, self).__init__()
         # Features of the PathNet are from the vgg 
         #  Changed these
-        self.path_net = PathNet(features = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim), path_dim=opt.path_dim, num_classes=32)
+        self.path_net = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim)
         self.grph_net = GraphNet(grph_dim=opt.grph_dim, dropout_rate=opt.dropout_rate, use_edges=1, pooling_ratio=0.20, label_dim=opt.label_dim, init_max=False)
         self.omic_net = MaxNet(input_dim=opt.input_size_omic, omic_dim=opt.omic_dim, dropout_rate=opt.dropout_rate, act=act, label_dim=opt.label_dim, init_max=False)
 
@@ -551,11 +549,9 @@ class PathgraphomicNet(nn.Module):
         self.fusion = define_trifusion(fusion_type=opt.fusion_type, skip=opt.skip, use_bilinear=opt.use_bilinear, gate1=opt.path_gate, gate2=opt.grph_gate, gate3=opt.omic_gate, dim1=opt.path_dim, dim2=opt.grph_dim, dim3=opt.omic_dim, scale_dim1=opt.path_scale, scale_dim2=opt.grph_scale, scale_dim3=opt.omic_scale, mmhid=opt.mmhid, dropout_rate=opt.dropout_rate)
         self.classifier = nn.Sequential(nn.Linear(opt.mmhid, opt.label_dim))
         self.act = act
-        # dfs_freeze(self.grph_net)
-        # dfs_freeze(self.omic_net)
-        # 
+        dfs_freeze(self.grph_net)
+        dfs_freeze(self.omic_net)
         self.output_range = Parameter(torch.FloatTensor([6]), requires_grad=False)
-        # 
         self.output_shift = Parameter(torch.FloatTensor([-3]), requires_grad=False)
 
     # **kwargs means that the method can accept an arbitrary number of keyword arguments
@@ -597,7 +593,7 @@ class PathgraphomicNet(nn.Module):
 class PathgraphNet(nn.Module):
     def __init__(self, opt, act, k):
         super(PathgraphNet, self).__init__()
-        self.path_net = PathNet(features = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim), path_dim=opt.path_dim, num_classes=32)
+        self.path_net = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim)
         self.grph_net = GraphNet(grph_dim=opt.grph_dim, dropout_rate=opt.dropout_rate, use_edges=1, pooling_ratio=0.20, label_dim=opt.label_dim, init_max=False)
 
         if k is not None:
@@ -646,6 +642,7 @@ class PathgraphNet(nn.Module):
 class PathpathNet(nn.Module):
     def __init__(self, opt, act, k):
         super(PathpathNet, self).__init__()
+        self.path_net = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim)
         self.fusion = define_bifusion(fusion_type=opt.fusion_type, skip=opt.skip, use_bilinear=opt.use_bilinear, gate1=opt.path_gate, gate2=1-opt.path_gate if opt.path_gate else 0, 
             dim1=opt.path_dim, dim2=opt.path_dim, scale_dim1=opt.path_scale, scale_dim2=opt.path_scale, mmhid=opt.mmhid, dropout_rate=opt.dropout_rate)
         self.classifier = nn.Sequential(nn.Linear(opt.mmhid, opt.label_dim))
@@ -654,7 +651,7 @@ class PathpathNet(nn.Module):
         self.output_shift = Parameter(torch.FloatTensor([-3]), requires_grad=False)
 
     def forward(self, **kwargs):
-        path_vec = kwargs['x_path']
+        path_vec, _ = self.path_net(kwargs['x_path'])
         features = self.fusion(path_vec, path_vec)
         hazard = self.classifier(features)
         if self.act is not None:

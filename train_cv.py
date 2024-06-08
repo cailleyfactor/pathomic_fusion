@@ -13,19 +13,18 @@ import torch_geometric
 print(torch_geometric.__version__)
 
 from result_plots import save_metric_logger, plots_train_vs_test
-from filter_patients import filter_unique_patients, filter_unique_patients_ordered
+from filter_patients import filter_unique_patients
 from option_file_converter import parse_opt_file
 
 ### 1. Initializes parser and device
 # This also prints opt but this is before the changes
-opt = parse_args()
+# opt = parse_args()
 checkpoints_dir = "./checkpoints/TCGA_GBMLGG"
 
-for setting in ["grad_15"]: # , "grad_15"
-    for mode in ["pathgraph_fusion"]: # ["path" "graph", "omic", "pathgraphomic_fusion", "graphomic_fusion", "pathomic_fusion","pathgraph_fusion"]:
+for setting in ["grad_15", "surv_15_rnaseq"]: # 
+    for mode in ["graphgraph_fusion", "omicomic_fusion", "pathpath_fusion"]:
         
         file_path = os.path.join(checkpoints_dir, setting, mode)
-
         opt = parse_opt_file(os.path.join(file_path, "train_opt.txt"))
 
         # Adding in changes away from default opmodel options
@@ -46,9 +45,11 @@ for setting in ["grad_15"]: # , "grad_15"
         if mode=='pathgraph_fusion':
             opt.mode = "pathgraph"
             opt.fusion_type ='pofusion'
-            opt.model_name = opt.model
+            opt.model_name = "pathgraph_fusion"
             opt.lambda_reg = 0.0
             opt.reg_type = 'none'
+
+
         
         if setting=="grad_15" and mode=='graphomic_fusion':
             opt.model_name = opt.mode_name
@@ -60,8 +61,17 @@ for setting in ["grad_15"]: # , "grad_15"
         if setting=="surv_15_rnaseq" and mode=="path":
             opt.beta1 = 0.9
             opt.beta2 = 0.999
+            opt.batch_size = 32
+            opt.niter_decay = 25
 
         if setting=="surv_15_rnaseq" and mode=="omic":
+            opt.model_name = opt.model
+
+        # General
+        if setting=="grad_15" and mode=="pathpath_fusion":
+            opt.model_name = opt.model
+
+        if setting=="grad_15" and mode=="omicomic_fusion":
             opt.model_name = opt.model
 
         # RNASeq setting
@@ -142,9 +152,9 @@ for setting in ["grad_15"]: # , "grad_15"
         print("*******************************************")
         # %%
 
-        # Filter the data for models containing omic
-        if "omic" in opt.mode:
-            data = filter_unique_patients(data)
+        # # Filter the data for models containing omic
+        # if "omic" in opt.mode:
+        #     data = filter_unique_patients(data)
 
         # This is currently: ./checkpoints/TCGA_GBMLGG/grad_15/pathgraphomic_fusion/pathgraphomic_fusion_0_patch_pred_train.pkl
         if os.path.exists(
