@@ -13,7 +13,6 @@ import torch_geometric
 print(torch_geometric.__version__)
 
 from result_plots import save_metric_logger, plots_train_vs_test
-from filter_patients import filter_unique_patients
 from option_file_converter import parse_opt_file
 
 ### 1. Initializes parser and device
@@ -22,7 +21,7 @@ from option_file_converter import parse_opt_file
 checkpoints_dir = "./checkpoints/TCGA_GBMLGG"
 
 
-for setting in ["grad_15","surv_15_rnaseq"]: # n ["grad_15", "surv_15_rnaseq"]:
+for setting in ["grad_15","surv_15_rnaseq"]: 
     for mode in ["omic", "graph", "omic", "pathgraphomic_fusion", "pathomic_fusion", "graphomic_fusion", "pathgraph_fusion", "path", "pathpath_fusion", "graphgraph_fusion", "omicomic_fusion"]:
         
         file_path = os.path.join(checkpoints_dir, setting, mode)
