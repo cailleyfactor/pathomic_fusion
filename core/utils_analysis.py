@@ -37,72 +37,60 @@ def natural_sort(l):
     return sorted(l, key = alphanum_key)
 
 
-
 ### Grade Classification
 # Glioma
-# This code 
-def getGradTestPats_GBMLGG(ckpt_name='./checkpoints/TCGA_GBMLGG/grad_15/', model='omic', split='test', use_rnaseq=False, agg_type='mean'):
+def getGradTestPats_GBMLGG(ckpt_name='./checkpoints/TCGA_GBMLGG/grad_15/', model='pathgraphomic_fusion', split='test', use_rnaseq=False, agg_type='mean'):
     pats = {}
-    ignore_missing_histype = 1 
-    ignore_missing_moltype = 1 if "omic" in model else 0
-    use_patch, roi_dir, use_vgg_features = ('_', 'all_st', 0)
-    if "omic" in model:
-        use_rnaseq = '_rnaseq' 
-    else:
-        use_rnaseq = ''
-    # data_cv_path = './data/TCGA_GBMLGG/splits/gbmlgg15cv_%s_%d_%d_%d%s.pkl' % (roi_dir, ignore_missing_moltype, ignore_missing_histype, use_vgg_features, use_rnaseq)
-    for k in range(1, 2):
-        # './checkpoints/TCGA_GBMLGG/grad_15/path/path_1_pred_test.pkl'
-        pred_test, data_cv  = pickle.load(open(ckpt_name+'%s/%s_%d%spred_%s_data.pkl' % (model, model, k, use_patch, split), 'rb'))
-        #pred_test = [risk_pred_all, survtime_all, censor_all, probs_all, gt_all]
-        grad_all = pred_test[3].T
+    ignore_missing_moltype, ignore_missing_histype = 1, 1
+    use_patch, roi_dir, use_vgg_features = ('_patch_', 'all_st_patches_512', 1) if (('path' in model) or ('graph' in model)) else ('_', 'all_st', 0)
+    use_rnaseq = '_rnaseq' if use_rnaseq else ''
+    data_cv_path = './data/TCGA_GBMLGG/splits/gbmlgg15cv_%s_%d_%d_%d%s.pkl' % (roi_dir, ignore_missing_moltype, ignore_missing_histype, use_vgg_features, use_rnaseq, )
+    print(data_cv_path)
+    for k in range(1,16):
+        pred = pickle.load(open(ckpt_name+'/%s/%s_%d%spred_%s.pkl' % (model, model, k, use_patch, split), 'rb'))    
+        grad_all = pred[3].T
         grad_all = pd.DataFrame(np.stack(grad_all)).T
         grad_all.columns = ['score_0', 'score_1', 'score_2']
-        # data_cv = pickle.load(open(data_cv_path, 'rb'))
+        data_cv = pickle.load(open(data_cv_path, 'rb'))
         data_cv_splits = data_cv['cv_splits']
         data_cv_split_k = data_cv_splits[k]
-        # assert np.all(data_cv_split_k[split]['g'] == pred[4]) # Data is correctly registered
-        # all_dataset = data_cv['data_pd'].drop('TCGA ID', axis=1)
-        # all_dataset_regstrd = all_dataset.loc[data_cv_split_k[split]['x_patname']] # Subset of "all_datasets" (metadata) that is registered with "pred" (predictions)
-        # assert np.all(np.array(all_dataset_regstrd['Grade']) == pred[4])
+        assert np.all(data_cv_split_k[split]['g'] == pred[4]) # Data is correctly registered
+        all_dataset = data_cv['data_pd'].drop('TCGA ID', axis=1)
+        all_dataset_regstrd = all_dataset.loc[data_cv_split_k[split]['x_patname']] # Subset of "all_datasets" (metadata) that is registered with "pred" (predictions)
+        assert np.all(np.array(all_dataset_regstrd['Grade']) == pred[4])
         grad_all.index = data_cv_split_k[split]['x_patname']
         grad_all.index.name = 'TCGA ID'
         fun = p(0.75) if agg_type == 'p0.75' else agg_type
         grad_all = grad_all.groupby('TCGA ID').agg({'score_0': [fun], 'score_1': [fun], 'score_2': [fun]})
-        pats[k] = grad_all.index     
-    # This is a dictionary returning the patient names
+        pats[k] = grad_all.index
+        
     return pats
 
 
-def getPredAggGrad_GBMLGG(ckpt_name='./checkpoints/TCGA_GBMLGG/grad_15/', model='omic', split='test', use_rnaseq=False, 
+def getPredAggGrad_GBMLGG(ckpt_name='./checkpoints/TCGA_GBMLGG/grad_15/', model='pathgraphomic_fusion', split='test', use_rnaseq=False, 
                          agg_type='max', test_pats=getGradTestPats_GBMLGG(), label='all'):
     y_label, y_pred = [], []
+
     ignore_missing_moltype = 1 if 'omic' in model else 0
     ignore_missing_histype = 1 if 'grad' in ckpt_name else 0
-    use_patch, roi_dir, use_vgg_features = ('_', 'all_st', 0)
-    if "omic" in model:
-        use_rnaseq = '_rnaseq' 
-    else:
-        use_rnaseq = ''
-    # data_cv_path = './data/TCGA_GBMLGG/splits/gbmlgg15cv_%s_%d_%d_%d%s.pkl' % (roi_dir, ignore_missing_moltype, ignore_missing_histype, use_vgg_features, use_rnaseq)
-    
+    use_patch, roi_dir, use_vgg_features = ('_patch_', 'all_st_patches_512', 1) if (('path' in model) or ('graph' in model)) else ('_', 'all_st', 0)
+    use_rnaseq = '_rnaseq' if use_rnaseq else ''
+    data_cv_path = './data/TCGA_GBMLGG/splits/gbmlgg15cv_%s_%d_%d_%d%s.pkl' % (roi_dir, ignore_missing_moltype, ignore_missing_histype, use_vgg_features, use_rnaseq, )
     #print(data_cv_path)
     
-    for k in range(1,2):
+    for k in range(1,16):
         ### Loads Prediction Pickle File. Registers predictions with TCGA IDs for the test split.
-        pred_test, data_cv  = pickle.load(open(ckpt_name+'%s/%s_%d%spred_%s_data.pkl' % (model, model, k, use_patch, split), 'rb'))
-        # probabilities
-        grad_pred = pred_test[3].T
+        pred = pickle.load(open(ckpt_name+'/%s/%s_%d%spred_%s.pkl' % (model, model, k, use_patch, split), 'rb'))    
+        grad_pred = pred[3].T
         grad_pred = pd.DataFrame(np.stack(grad_pred)).T
         grad_pred.columns = ['score_0', 'score_1', 'score_2']
-        # data_cv = pickle.load(open(data_cv_path, 'rb'))
+        data_cv = pickle.load(open(data_cv_path, 'rb'))
         data_cv_splits = data_cv['cv_splits']
         data_cv_split_k = data_cv_splits[k]
-
-        # # assert np.all(data_cv_split_k[split]['g'] == pred[4]) # Data is correctly registered
-
+        assert np.all(data_cv_split_k[split]['g'] == pred[4]) # Data is correctly registered
         all_dataset = data_cv['data_pd'].drop('TCGA ID', axis=1)
-        # Link grad pred to the TCGA ID
+        all_dataset_regstrd = all_dataset.loc[data_cv_split_k[split]['x_patname']] # Subset of "all_datasets" (metadata) that is registered with "pred" (predictions)
+        assert np.all(np.array(all_dataset_regstrd['Grade']) == pred[4])
         grad_pred.index = data_cv_split_k[split]['x_patname']
         grad_pred.index.name = 'TCGA ID'
         
@@ -119,7 +107,7 @@ def getPredAggGrad_GBMLGG(ckpt_name='./checkpoints/TCGA_GBMLGG/grad_15/', model=
         
         y_label.append(grad_gt)
         y_pred.append(grad_pred)
-        
+    
     return y_label, y_pred
 
     y_label, y_pred = np.vstack(y_label), np.vstack(y_pred)
@@ -127,7 +115,7 @@ def getPredAggGrad_GBMLGG(ckpt_name='./checkpoints/TCGA_GBMLGG/grad_15/', model=
         return y_label[:,label], y_pred[:,label]
     return y_label, y_pred
 
-# 
+
 def calcGradMetrics(y_label_all, y_pred_all, avg='micro'):
     rocauc_all = []
     ap_all = []
@@ -331,22 +319,20 @@ def trainCox_GBMLGG(dataroot = './data/TCGA_GBMLGG/', ckpt_name='./checkpoints/T
     print("Average C-Index: %s" % CI_pm(cv_results))
 
 
-def getSurvTestPats_GBMLGG(ckpt_name='./checkpoints/TCGA_GBMLGG/surv_15_rnaseq/', model='path', split='test', use_rnaseq=True, agg_type='Hazard_mean'):
+def getSurvTestPats_GBMLGG(ckpt_name='./checkpoints/TCGA_GBMLGG/surv_15_rnaseq/', model='pathgraphomic_fusion', split='test', use_rnaseq=True, agg_type='Hazard_mean'):
     pats = {}
-    ignore_missing_moltype = 1 if "omic" in model else 0
+
+    print(model)
+    ignore_missing_moltype = 1
     ignore_missing_histype = 0
-    use_patch, roi_dir, use_vgg_features = ('_', 'all_st', 0)
-    if "omic" in model:
-        use_rnaseq = '_rnaseq'
-    else:
-        use_rnaseq = ''
-        #     opt.input_size_omic = 80
-    data_cv_path = './data/TCGA_GBMLGG/splits/gbmlgg15cv_%s_%d_%d_%d%s.pkl' % (roi_dir, ignore_missing_moltype, ignore_missing_histype, use_vgg_features, use_rnaseq)
+    use_patch, roi_dir, use_vgg_features = ('_patch_', 'all_st_patches_512', 1) if (('path' in model) or ('graph' in model)) else ('_', 'all_st', 0)
+    use_rnaseq = '_rnaseq' if use_rnaseq else ''
+    data_cv_path = './data/TCGA_GBMLGG/splits/gbmlgg15cv_%s_%d_%d_%d%s.pkl' % (roi_dir, ignore_missing_moltype, ignore_missing_histype, use_vgg_features, use_rnaseq, )
     print(data_cv_path)
     
-    for k in range(1,2):
+    for k in range(1,16):
         pred = pickle.load(open(ckpt_name+'/%s/%s_%d%spred_%s.pkl' % (model, model, k, use_patch, split), 'rb'))    
-        surv_all = pd.DataFrame(np.stack(np.delete(np.array(pred, dtype=object), 3))).T
+        surv_all = pd.DataFrame(np.stack(np.delete(np.array(pred), 3))).T
         surv_all.columns = ['Hazard', 'Survival months', 'censored', 'Grade']
         data_cv = pickle.load(open(data_cv_path, 'rb'))
         data_cv_splits = data_cv['cv_splits']

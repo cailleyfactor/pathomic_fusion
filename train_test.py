@@ -335,9 +335,12 @@ def test(opt, model, data, split, device):
                 (survtime_all, survtime.detach().cpu().numpy().reshape(-1))
             )  # Logging Information
         elif opt.task == "grad":
+            # Finding the index of the maximum value along dimensin 1 of pred and storing it in grade_pred
             grade_pred = pred.argmax(dim=1, keepdim=True)
+            # Increment a running total of correct predictions
             grad_acc_test += grade_pred.eq(grade.view_as(grade_pred)).sum().item()
             probs_np = pred.detach().cpu().numpy()
+            # If probs_all is None it is set to probs_np, otherwise it is concatenated with probs_np
             probs_all = (
                 probs_np
                 if probs_all is None
@@ -364,6 +367,7 @@ def test(opt, model, data, split, device):
     grad_acc_test = (
         grad_acc_test / len(test_loader.dataset) if opt.task == "grad" else None
     )
+    # Risk_pred_all is hazards, probs all
     pred_test = [risk_pred_all, survtime_all, censor_all, probs_all, gt_all]
 
     return loss_test, cindex_test, pvalue_test, surv_acc_test, grad_acc_test, pred_test
