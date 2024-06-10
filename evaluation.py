@@ -52,12 +52,11 @@ c=[(-1.5, -0.5), (1, 1.25), (1.25, 1.5)]
 df = df1.merge(df2, on='TCGA ID', how='left') 
 
 for model in ['graph', 'path', 'omic', 'pathomic_fusion', 'graphomic_fusion', 'pathgraphomic_fusion', 'pathgraph_fusion', 'pathpath_fusion', 'graphgraph_fusion']:
-    
     model_name = model_mappings.get(model, 'Unknown Model') 
 
     # Kaplan-Meier Curves
     ckpt_name='./checkpoints/TCGA_GBMLGG/surv_15_rnaseq/'
-    split = "test"
+    split = "train"
     use_patch = "_"
     k=1
 
@@ -77,7 +76,7 @@ for model in ['graph', 'path', 'omic', 'pathomic_fusion', 'graphomic_fusion', 'p
     hazards = data['Hazards']
     censor_status = data['Censor Status']
     survival_times = data['Survival Time']
-    # survival_time = survival_times // 365
+    survival_times = survival_times // 365
     grade_groups = set(grade_status)
 
     # Kaplan-Meier curve by grade status
@@ -118,8 +117,8 @@ for model in ['graph', 'path', 'omic', 'pathomic_fusion', 'graphomic_fusion', 'p
     data['Hazards_z'] = zscore(data['Hazards'])
 
     # Split the data based on the survival time
-    low = data[data['Survival Time'] <= 365*3]
-    high = data[data['Survival Time'] > 365*3]
+    low = data[data['Survival Time'] <= 365*5]
+    high = data[data['Survival Time'] > 365*5]
     
     # Setting the size of the entire plot
     plt.figure(figsize=(10, 6))
