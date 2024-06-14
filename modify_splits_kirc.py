@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import numpy as np
 
-pkl_path = "./data/TCGA_KIRC/splits/KIRC_st_0_og.pkl"
+pkl_path = "./data/TCGA_KIRC/splits/KIRC_st_0.pkl"
 data_cv = pickle.load(open(pkl_path, "rb"))
 clinical_data = pd.read_csv(os.path.join("./data/TCGA_KIRC/", "kirc_tcga_pan_can_atlas_2018_clinical_data.tsv"), delimiter='\t')
 

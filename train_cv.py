@@ -19,13 +19,18 @@ from option_file_converter import parse_opt_file
 ### 1. Initializes parser and device
 # This also prints opt but this is before the changes
 # opt = parse_args()
-checkpoints_dir = "./checkpoints/TCGA_GBMLGG"
 
-for setting in ["grad_15", "surv_15_rnaseq"]: # 
-    for mode in ["graphgraph_fusion", "omicomic_fusion", "pathpath_fusion"]:
-        
+checkpoints_dir = "./checkpoints/TCGA_GBMLGG"
+# Change for each run
+results_folder = "results_1"
+
+for setting in ["grad_15"]: # 
+    for mode in ["pathomic_fusion", "graphomic_fusion", "omicomic_fusion"]:
         file_path = os.path.join(checkpoints_dir, setting, mode)
         opt = parse_opt_file(os.path.join(file_path, "train_opt.txt"))
+
+        opt.use_rnaseq = 0
+        opt.input_size_omic = 80
 
         # Adding in changes away from default opmodel options
         opt.dataroot = './data/TCGA_GBMLGG'
@@ -47,9 +52,8 @@ for setting in ["grad_15", "surv_15_rnaseq"]: #
             opt.fusion_type ='pofusion'
             opt.model_name = "pathgraph_fusion"
             opt.lambda_reg = 0.0
+            # Changed this to reg_type all from last run
             opt.reg_type = 'none'
-
-
         
         if setting=="grad_15" and mode=='graphomic_fusion':
             opt.model_name = opt.mode_name
@@ -74,21 +78,14 @@ for setting in ["grad_15", "surv_15_rnaseq"]: #
         if setting=="grad_15" and mode=="omicomic_fusion":
             opt.model_name = opt.model
 
-        # RNASeq setting
-        if "omic" in mode:
-            opt.use_rnaseq = 1
-            opt.input_size_omic = 320
-        else:
-            opt.use_rnaseq = 0
-        #     opt.input_size_omic = 80
+        # # RNASeq setting
+        # if "omic" in mode:
+        #     opt.use_rnaseq = 1
+        #     opt.input_size_omic = 320
+        # else:
+        #     opt.use_rnaseq = 0
+        # #   opt.input_size_omic = 80
 
-        # opt.fusion_type = "pofusion_A" # pofusion for bimodal 
-
-        # # Options for surv
-        # opt.task = "surv"
-        # opt.exp_name = "surv"
-        # opt.label_dim = 1 
-        # opt.act_type = "Sigmoid" # surv
 
         # Added in code to print changed attributes
         for attr, value in vars(opt).items():
@@ -170,8 +167,8 @@ for setting in ["grad_15", "surv_15_rnaseq"]: #
         ### 3.1 Trains Model
         model, optimizer, metric_logger = train(opt, data, device, k=1)
         # In running this this, files are saved like this: %s_%d%s%d_pred_test.pkl" % (opt.model_name, k, use_patch, epoch)
-        df = save_metric_logger(metric_logger, opt)
-        plots_train_vs_test(df, opt)
+        df = save_metric_logger(metric_logger, opt, results_folder)
+        plots_train_vs_test(df, opt, results_folder)
 
         ### 3.2 Evalutes Train + Test Error, and Saves Model
         (

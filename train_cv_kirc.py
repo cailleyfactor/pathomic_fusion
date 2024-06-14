@@ -20,8 +20,9 @@ from option_file_converter import parse_opt_file
 # This also prints opt but this is before the changes
 # opt = parse_args()
 checkpoints_dir = "./checkpoints/TCGA_KIRC"
+results_folder = "results_2"
 
-for mode in ["pathclin_fusion"]:
+for mode in ["path", "omic", "graph", "pathomic_fusion"]:
     setting = "surv_15"
     file_path = os.path.join(checkpoints_dir, setting, mode)
     opt = parse_opt_file(os.path.join(file_path, "train_opt.txt"))
@@ -35,7 +36,17 @@ for mode in ["pathclin_fusion"]:
     opt.use_vgg_features = 0
     opt.gpu_ids = []
 
+    # Currently loading./data/TCGA_GBMLGG/splits/gbmlgg15cv_all_st_1_0_0.pkl
+    #  Not using vgg_features or rnaseq
+    # data_cv_path = "%s/splits/KIRC_st_0_clinical.pkl" % (opt.dataroot)
+    data_cv_path = "./data/TCGA_KIRC/splits/KIRC_st_0.pkl"
+    print("Loading %s" % data_cv_path)
+
     # Grad settings bespoke
+    if mode=='path':
+        opt.batch_size = 32
+        opt.mode = "path"
+
     if mode=='pathgraph_fusion':
         opt.mode = "pathgraph"
         opt.fusion_type ='pofusion'
@@ -83,13 +94,13 @@ for mode in ["pathclin_fusion"]:
         opt.clin_scale = 1
         opt.reg_type = 'all'
 
-    # RNASeq setting
-    if "omic" in mode:
-        opt.use_rnaseq = 1
-        opt.input_size_omic = 364
-    else:
-        opt.use_rnaseq = 0
-    #     opt.input_size_omic = 80
+    # # RNASeq setting
+    # if "omic" in mode:
+    #     opt.use_rnaseq = 1
+    #     opt.input_size_omic = 364
+    # else:
+    #     opt.use_rnaseq = 0
+    # #     opt.input_size_omic = 80
 
     # opt.fusion_type = "pofusion_A" # pofusion for bimodal 
 
@@ -119,17 +130,13 @@ for mode in ["pathclin_fusion"]:
     if not os.path.exists(os.path.join(opt.checkpoints_dir, opt.exp_name, opt.model_name)):
         os.makedirs(os.path.join(opt.checkpoints_dir, opt.exp_name, opt.model_name))
 
-    # Currently loading./data/TCGA_GBMLGG/splits/gbmlgg15cv_all_st_1_0_0.pkl
-    #  Not using vgg_features or rnaseq
-    data_cv_path = "%s/splits/KIRC_st_0_clinical.pkl" % (opt.dataroot)
-    print("Loading %s" % data_cv_path)
 
     data_cv_splits = pickle.load(open(data_cv_path, "rb"))
     results = []
 
     ### 3. Sets-Up Main Loop
     k = 1
-    data = data_cv_splits[k]
+    data = data_cv_splits['split'][k]
     print("*******************************************")
     print(
         "************** SPLIT (%d/%d) **************" % (k, len(data_cv_splits.items()))

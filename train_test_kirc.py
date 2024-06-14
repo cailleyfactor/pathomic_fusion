@@ -6,8 +6,8 @@ import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
 from torch.utils.data import RandomSampler
 
-from data_loaders_kirc import KircDatasetLoader
-from networks_kirc import define_net, define_reg, define_optimizer, define_scheduler
+from data_loaders import PathgraphomicDatasetLoader # KircDatasetLoader, KircClinDatasetLoader
+from networks import define_net, define_reg, define_optimizer, define_scheduler
 from utils import (
     unfreeze_unimodal,
     CoxLoss,
@@ -46,7 +46,9 @@ def train(opt, data, device, k):
     # Augmented dataset
     # opt.mode is carried through
     custom_data_loader = (
-        KircDatasetLoader(opt, data, split="train", mode=opt.mode)
+        PathgraphomicDatasetLoader(opt, data, split="train", mode=opt.mode) 
+        if "clin" in opt.mode 
+        else PathgraphomicDatasetLoader(opt, data, split="train", mode=opt.mode)
     )
     train_loader = torch.utils.data.DataLoader(
         dataset=custom_data_loader,
@@ -277,7 +279,9 @@ def test(opt, model, data, split, device):
     model.eval()
 
     custom_data_loader = (
-        KircDatasetLoader(opt, data, split="train", mode=opt.mode)
+        PathgraphomicDatasetLoader(opt, data, split="train", mode=opt.mode) 
+        if "clin" in opt.mode 
+        else PathgraphomicDatasetLoader(opt, data, split="train", mode=opt.mode)
     )
 
     test_loader = torch.utils.data.DataLoader(
