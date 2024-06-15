@@ -28,7 +28,7 @@ from sklearn.model_selection import train_test_split, KFold
 from sklearn.metrics import average_precision_score, auc, f1_score, roc_curve, roc_auc_score
 from sklearn.preprocessing import LabelBinarizer
 
-from scipy import interp
+from numpy import interp
 mpl.rcParams['axes.linewidth'] = 3 #set the value globally
 
 # Torch

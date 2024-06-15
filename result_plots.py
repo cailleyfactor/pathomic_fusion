@@ -10,7 +10,7 @@ import datetime
 
 current_time = datetime.datetime.now()
 
-def save_metric_logger(metric_logger, opt, results_folder):
+def save_metric_logger(metric_logger, opt, results_folder, k):
     # Initialize the data dictionary with the metrics
     metric_data = {
         "train_loss": metric_logger["train"]["loss"],
@@ -36,12 +36,12 @@ def save_metric_logger(metric_logger, opt, results_folder):
     os.makedirs(results_dir, exist_ok=True)
 
     # Save the DataFrame to a CSV file within the results directory
-    csv_filepath = os.path.join(results_dir, f'{opt.model_name}_metrics.csv')
+    csv_filepath = os.path.join(results_dir, f'{opt.model_name}_metrics_{k}.csv')
     df.to_csv(csv_filepath, index=False)
 
     return df
 
-def plots_train_vs_test(df, opt, results_folder):
+def plots_train_vs_test(df, opt, results_folder, k):
 
     for metric in ['loss', 'cindex', 'pvalue', 'surv_acc', 'grad_acc']:
         # Extract train loss and test loss from the DataFrame
@@ -61,7 +61,7 @@ def plots_train_vs_test(df, opt, results_folder):
 
         # Save the plot to a file within the specified directory
         results_dir = os.path.join(opt.checkpoints_dir, opt.exp_name, results_folder)
-        plot_filepath = os.path.join(results_dir, f'{opt.model_name}_{metric}_plot.png')
+        plot_filepath = os.path.join(results_dir, f'{opt.model_name}_{metric}_plot_{k}.png')
         plt.savefig(plot_filepath)
         
     return None

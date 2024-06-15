@@ -1,3 +1,4 @@
+# %%
 from core.utils_data import getCleanGBMLGG
 import pandas as pd
 import numpy as np
@@ -21,6 +22,9 @@ import os
 import math
 import pandas as pd
 import matplotlib.pyplot as plt
+
+# %%
+#### LOSS & METRIC PLOTS - GRADE
 
 checkpoints_dir = './checkpoints/TCGA_GBMLGG'
 metrics = ['loss', 'grad_acc']
@@ -72,6 +76,9 @@ plot_filepath = os.path.join(checkpoints_dir, eval_folder, f'{exp_name}_performa
 plt.savefig(plot_filepath)
 plt.close()
 
+# %%
+#### LOSS & METRIC PLOTS - SURVIVAL ####
+
 checkpoints_dir = './checkpoints/TCGA_GBMLGG'
 metrics = ['loss', 'cindex', 'surv_acc']
 eval_folder = 'evaluation'
@@ -117,7 +124,11 @@ plot_filepath = os.path.join(checkpoints_dir, eval_folder, f'{exp_name}_performa
 plt.savefig(plot_filepath)
 plt.close()
 
-## Code for ROC and AUC
+#### ####
+# %%
+## This code may no longer be needed
+##
+
 exp_name = 'surv_15_rnaseq'
 metrics = ['loss', 'cindex', 'pvalue', 'surv_acc']
 # Calculate the number of rows and columns for the gri
@@ -157,7 +168,9 @@ for metric in metrics:
 
 models = ['graph', 'path', 'omic', 'pathgraphomic_fusion']
 
-# Code for AUC, ROC
+# %%
+#### ROC, AUC Plots - formatted
+
 fig, axes = plt.subplots(1, 4, figsize=(20, 5))
 
 for idx, model in enumerate(models):
@@ -252,8 +265,9 @@ print(f"Micro-averaged One-vs-Rest ROC AUC score: {roc_auc['micro']:.2f}")
 print(f"Macro-averaged One-vs-Rest ROC AUC score: {roc_auc['macro']:.2f}")
 
 
-######
-#### Code for KM curves
+# %% 
+#### Kaplan- Meier Curves
+
 model_mappings = {
     'graph': 'Graph GCN',
     'path': 'Histology CNN',
@@ -392,7 +406,9 @@ plot_filepath = os.path.join(checkpoints_dir, eval_folder, f'kaplan_meier_curves
 plt.savefig(plot_filepath)
 plt.close()
 
-# Make the hazard histogram
+# %%
+#### HISTOGRAM HAZARD PLOTS
+
 fig, axes = plt.subplots(1, 4, figsize=(20, 5))  # Adjust the figsize to suit your display needs
 for j, model in enumerate(['graph', 'path', 'omic', 'pathgraphomic_fusion']):
     data = load_and_process_survival_data(model, k, use_patch, split, ckpt_name='./checkpoints/TCGA_GBMLGG/surv_15_rnaseq/')

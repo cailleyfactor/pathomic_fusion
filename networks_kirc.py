@@ -53,7 +53,6 @@ def define_net(opt, k):
     if opt.mode == "path":
         # changed num_classes to opt.label_dim
         net = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim)
-        # net = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim)
     elif opt.mode == "graph":
         net = GraphNet(grph_dim=opt.grph_dim, dropout_rate=opt.dropout_rate, GNN=opt.GNN, use_edges=opt.use_edges, pooling_ratio=opt.pooling_ratio, act=act, label_dim=opt.label_dim, init_max=init_max)
     elif opt.mode == "omic":
@@ -232,7 +231,7 @@ class MaxNet(nn.Module):
 class ClinNet(nn.Module):
     def __init__(self, input_clin_dim=9, clin_dim=3, dropout_rate=0.25, act=None, label_dim=1, init_max=True):
         super(ClinNet, self).__init__()
-        hidden = [8, 4, 4, 4]
+        hidden = [6, 4, 4, 4]
         self.act = act
 
         encoder1 = nn.Sequential(
@@ -374,6 +373,65 @@ class GraphNet(torch.nn.Module):
 
         return features, out
 
+
+############
+# Path Model
+############
+model_urls = {
+    'vgg11': 'https://download.pytorch.org/models/vgg11-bbd30ac9.pth',
+    'vgg13': 'https://download.pytorch.org/models/vgg13-c768596a.pth',
+    'vgg16': 'https://download.pytorch.org/models/vgg16-397923af.pth',
+    'vgg19': 'https://download.pytorch.org/models/vgg19-dcbb9e9d.pth',
+    'vgg11_bn': 'https://download.pytorch.org/models/vgg11_bn-6002323d.pth',
+    'vgg13_bn': 'https://download.pytorch.org/models/vgg13_bn-abd245e5.pth',
+    'vgg16_bn': 'https://download.pytorch.org/models/vgg16_bn-6c64b313.pth',
+    'vgg19_bn': 'https://download.pytorch.org/models/vgg19_bn-c79401a0.pth',
+}
+
+
+class SimplePathNet(nn.Module):
+
+    def __init__(self, features, path_dim=32, act=None, num_classes=1):
+        super(PathNet, self).__init__()
+        self.features = features
+        self.avgpool = nn.AdaptiveAvgPool2d((7, 7))
+        
+        self.classifier = nn.Sequential(
+            nn.Linear(512 * 7 * 7, 1024),
+            nn.ReLU(True),
+            nn.Dropout(0.25),
+            nn.Linear(1024, 1024),
+            nn.ReLU(True),
+            nn.Dropout(0.25),
+            nn.Linear(1024, path_dim),
+            nn.ReLU(True),
+            nn.Dropout(0.05)
+        )
+
+        self.linear = nn.Linear(path_dim, num_classes)
+        self.act = act
+
+        self.output_range = Parameter(torch.FloatTensor([6]), requires_grad=False)
+        self.output_shift = Parameter(torch.FloatTensor([-3]), requires_grad=False)
+
+        dfs_freeze(self.features)
+
+    def forward(self, input):#**kwargs):
+        x = input #kwargs['x_path']
+        x = self.features(x)
+        if type(x) is tuple:
+            x=x[0]
+        else:
+            x = self.avgpool(x)
+            x = x.view(x.size(0), -1)
+            x = self.classifier(x)
+        
+        hazard = self.linear(x)
+        if self.act is not None:
+            hazard = self.act(hazard)
+            if isinstance(self.act, nn.Sigmoid):
+                hazard = hazard * self.output_range + self.output_shift
+        return x, hazard
 
 
 ############

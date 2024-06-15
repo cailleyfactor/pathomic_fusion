@@ -57,7 +57,7 @@ class KircClinDatasetLoader(Dataset):
             single_X_omic = torch.tensor(self.X_omic[index]).type(torch.FloatTensor)
             return (0, 0, single_X_omic, single_e, single_t, single_g)
         elif self.mode == "pathomic":
-            single_X_clin = torch.tensor(self.X_clin[index]).type(torch.FloatTensor)
+            single_X_path = Image.open(self.X_path[index]).convert('RGB')
             single_X_omic = torch.tensor(self.X_omic[index]).type(torch.FloatTensor)
             return (self.transforms(single_X_path), 0, single_X_omic, single_e, single_t, single_g)
         elif self.mode == "clinomic":
