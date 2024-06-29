@@ -136,7 +136,7 @@ class TrilinearFusion_B(nn.Module):
         skip_dim = dim1+dim2+dim3+3 if skip else 0
 
         ### Path
-        self.linear_h1 = nn.Sequential(nn.Linear(dim1_og, dim1), nn.ReLU())
+        self.linear_h1 = nn.Sequential(nn.Linear(dim1_og, dim1), nn.ReLU()) 
         self.linear_z1 = nn.Bilinear(dim1_og, dim3_og, dim1) if use_bilinear else nn.Sequential(nn.Linear(dim1_og+dim3_og, dim1))
         self.linear_o1 = nn.Sequential(nn.Linear(dim1, dim1), nn.ReLU(), nn.Dropout(p=dropout_rate))
 

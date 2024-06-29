@@ -7,7 +7,7 @@ import torch
 # Env
 from data_loaders import *
 from options import parse_args
-from train_test_kirc_use_emb import train, test
+from train_test_kirc import train, test
 
 import torch_geometric
 print(torch_geometric.__version__)
@@ -19,11 +19,12 @@ from option_file_converter import parse_opt_file
 ### 1. Initializes parser and device
 # This also prints opt but this is before the changes
 # opt = parse_args()
-checkpoints_dir = ".\\checkpoints\\TCGA_KIRC"
-results_folder = "results"
+checkpoints_dir = "./checkpoints/TCGA_KIRC"
+results_folder = "results_2"
 
-for k in range(1, 2):
-    for mode in ["path"]:
+# Decide number of folds for training
+for k in range(1, 5):
+    for mode in ["omic", "clin", "path", "clinomic_fusion", "pathclin_fusion", "pathomic_fusion","pathclinomic_fusion"]:
         setting = "surv_15"
         file_path = os.path.join(checkpoints_dir, setting, mode)
         opt = parse_opt_file(os.path.join(file_path, "train_opt.txt"))
@@ -46,23 +47,16 @@ for k in range(1, 2):
         if 'omic' in mode:
             opt.input_size_omic = 362
 
-        # Grad settings bespoke
+        #  settings bespoke
         if mode=='path':
             opt.batch_size = 32
             opt.mode = "path"
-
-        if mode=='pathgraph_fusion':
-            opt.mode = "pathgraph"
-            opt.fusion_type ='pofusion'
-            opt.model_name = "pathgraph_fusion"
-            opt.lambda_reg = 0.0
-            opt.reg_type = 'none'
 
         if "clin" in mode:
             opt.mode = "clin"
             opt.model_name = "clin"
             opt.input_size_clin = 9
-            opt.clin_dim = 3
+            opt.clin_dim = 32
 
         if "clinomic_fusion" in mode:
             opt.mode = "clinomic"
@@ -102,14 +96,10 @@ for k in range(1, 2):
         for attr, value in vars(opt).items():
             print(f"{attr} = {value}")
 
-        # # Set device to MPS if GPU is available
-        # device = (
-        #     torch.device("cuda:{}".format(opt.gpu_ids[0]))
-        #     if opt.gpu_ids
-        #     else torch.device("cpu")
-        # )
+        # Set device to MPS if GPU is available
+        device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print("Using device:", device)
 
         # Create directories
@@ -120,7 +110,7 @@ for k in range(1, 2):
         if not os.path.exists(os.path.join(opt.checkpoints_dir, opt.exp_name, opt.model_name)):
             os.makedirs(os.path.join(opt.checkpoints_dir, opt.exp_name, opt.model_name))
 
-
+            
         data_cv_splits = pickle.load(open(data_cv_path, "rb"))
         results = []
 
@@ -254,17 +244,17 @@ for k in range(1, 2):
         )
 
 
-        # print("Split Results:", results)
-        # print("Average:", np.array(results).mean())
-        # pickle.dump(
-        #     results,
-        #     open(
-        #         os.path.join(
-        #             opt.checkpoints_dir,
-        #             opt.exp_name,
-        #             opt.model_name,
-        #             "%s_results.pkl" % opt.model_name,
-        #         ),
-        #         "wb",
-        #     ),
-        # )
+        print("Split Results:", results)
+        print("Average:", np.array(results).mean())
+        pickle.dump(
+            results,
+            open(
+                os.path.join(
+                    opt.checkpoints_dir,
+                    opt.exp_name,
+                    opt.model_name,
+                    "%s_results.pkl" % opt.model_name,
+                ),
+                "wb",
+            ),
+        )

@@ -7,7 +7,7 @@ import torch
 # Env
 from data_loaders import *
 from options import parse_args
-from train_test import train, test
+from train_test_use_emb import train, test
 
 import torch_geometric
 print(torch_geometric.__version__)
@@ -22,15 +22,12 @@ from option_file_converter import parse_opt_file
 
 checkpoints_dir = "./checkpoints/TCGA_GBMLGG"
 # Change for each run
-results_folder = "results_1"
+results_folder = "results_embeddings"
 
-for setting in ["grad_15"]: # 
-    for mode in ["pathomic_fusion", "graphomic_fusion", "omicomic_fusion"]:
+for setting in ["surv_15_rnaseq"]:
+    for mode in ["omic"]:
         file_path = os.path.join(checkpoints_dir, setting, mode)
         opt = parse_opt_file(os.path.join(file_path, "train_opt.txt"))
-
-        opt.use_rnaseq = 0
-        opt.input_size_omic = 80
 
         # Adding in changes away from default opmodel options
         opt.dataroot = './data/TCGA_GBMLGG'
@@ -46,6 +43,7 @@ for setting in ["grad_15"]: #
             opt.model_name = opt.model
             opt.batch_size = 32
             opt.niter_decay = 25
+            opt.reg_type = 'all'
         
         if mode=='pathgraph_fusion':
             opt.mode = "pathgraph"
@@ -78,25 +76,21 @@ for setting in ["grad_15"]: #
         if setting=="grad_15" and mode=="omicomic_fusion":
             opt.model_name = opt.model
 
-        # # RNASeq setting
-        # if "omic" in mode:
-        #     opt.use_rnaseq = 1
-        #     opt.input_size_omic = 320
-        # else:
-        #     opt.use_rnaseq = 0
-        # #   opt.input_size_omic = 80
-
+        # RNASeq setting
+        if setting=="surv_15_rnaseq" and "omic" in mode:
+            opt.use_rnaseq = 1
+            opt.input_size_omic = 320
+        else:
+            opt.use_rnaseq = 0
+            opt.input_size_omic = 80
 
         # Added in code to print changed attributes
         for attr, value in vars(opt).items():
             print(f"{attr} = {value}")
 
         # Set device to MPS if GPU is available
-        device = (
-            torch.device("mps:{}".format(opt.gpu_ids[0]))
-            if opt.gpu_ids
-            else torch.device("cpu")
-        )
+        # device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
+        device = torch.device("cpu")
         print("Using device:", device)
 
         # Create directories
@@ -140,151 +134,146 @@ for setting in ["grad_15"]: #
         results = []
 
         ### 3. Sets-Up Main Loop
-        k = 1
-        data = data_cv_splits[k]
-        print("*******************************************")
-        print(
-            "************** SPLIT (%d/%d) **************" % (k, len(data_cv_splits.items()))
-        )
-        print("*******************************************")
-        # %%
-
-        # # Filter the data for models containing omic
-        # if "omic" in opt.mode:
-        #     data = filter_unique_patients(data)
-
-        # This is currently: ./checkpoints/TCGA_GBMLGG/grad_15/pathgraphomic_fusion/pathgraphomic_fusion_0_patch_pred_train.pkl
-        if os.path.exists(
-            os.path.join(
-                opt.checkpoints_dir,
-                opt.exp_name,
-                opt.model_name,
-                "%s_%d_patch_pred_train.pkl" % (opt.model_name, k+1),
-            )
-        ):
-            print("Train-Test Split already made.")
-
-        ### 3.1 Trains Model
-        model, optimizer, metric_logger = train(opt, data, device, k=1)
-        # In running this this, files are saved like this: %s_%d%s%d_pred_test.pkl" % (opt.model_name, k, use_patch, epoch)
-        df = save_metric_logger(metric_logger, opt, results_folder)
-        plots_train_vs_test(df, opt, results_folder)
-
-        ### 3.2 Evalutes Train + Test Error, and Saves Model
-        (
-            loss_train,
-            cindex_train,
-            pvalue_train,
-            surv_acc_train,
-            grad_acc_train,
-            pred_train,
-        ) = test(opt, model, data, "train", device)
-
-        loss_test, cindex_test, pvalue_test, surv_acc_test, grad_acc_test, pred_test = test(
-            opt, model, data, "test", device
-        )
-
-        # These print at the end - 
-        if opt.task == "surv":
+        for k in range(1,6):
+            data = data_cv_splits[k]
+            print("*******************************************")
             print(
-                "[Final] Apply model to training set: C-Index: %.10f, P-Value: %.10e"
-                % (cindex_train, pvalue_train)
+                "************** SPLIT (%d/%d) **************" % (k, len(data_cv_splits.items()))
             )
-            logging.info(
-                "[Final] Apply model to training set: C-Index: %.10f, P-Value: %.10e"
-                % (cindex_train, pvalue_train)
-            )
-            print(
-                "[Final] Apply model to testing set: C-Index: %.10f, P-Value: %.10e"
-                % (cindex_test, pvalue_test)
-            )
-            logging.info(
-                "[Final] Apply model to testing set: cC-Index: %.10f, P-Value: %.10e"
-                % (cindex_test, pvalue_test)
-            )
-            results.append(cindex_test)
+            print("*******************************************")
+            # %%
+            # # This is currently: ./checkpoints/TCGA_GBMLGG/grad_15/pathgraphomic_fusion/pathgraphomic_fusion_0_patch_pred_train.pkl
+            # if os.path.exists(
+            #     os.path.join(
+            #         opt.checkpoints_dir,
+            #         opt.exp_name,
+            #         opt.model_name,
+            #         "%s_%d_patch_pred_train.pkl" % (opt.model_name, k+1),
+            #     )
+            # ):
+            #     print("Train-Test Split already made.")
 
-        elif opt.task == "grad":
-            print(
-                "[Final] Apply model to training set: Loss: %.10f, Acc: %.4f"
-                % (loss_train, grad_acc_train)
-            )
-            logging.info(
-                "[Final] Apply model to training set: Loss: %.10f, Acc: %.4f"
-                % (loss_train, grad_acc_train)
-            )
-            print(
-                "[Final] Apply model to testing set: Loss: %.10f, Acc: %.4f"
-                % (loss_test, grad_acc_test)
-            )
-            logging.info(
-                "[Final] Apply model to testing set: Loss: %.10f, Acc: %.4f"
-                % (loss_test, grad_acc_test)
-            )
-            results.append(grad_acc_test)
+            ### 3.1 Trains Model
+            model, optimizer, metric_logger = train(opt, data, device, k=1)
+            # In running this this, files are saved like this: %s_%d%s%d_pred_test.pkl" % (opt.model_name, k, use_patch, epoch)
+            df = save_metric_logger(metric_logger, opt, results_folder, k)
+            plots_train_vs_test(df, opt, results_folder, k)
 
-        ### 3.3 Saves Model
-        if len(opt.gpu_ids) > 0 and torch.cuda.is_available():
-            model_state_dict = model.module.cpu().state_dict()
-        else:
-            model_state_dict = model.cpu().state_dict()
+            ### 3.2 Evalutes Train + Test Error, and Saves Model
+            (
+                loss_train,
+                cindex_train,
+                pvalue_train,
+                surv_acc_train,
+                grad_acc_train,
+                pred_train,
+            ) = test(opt, model, data, "train", device)
 
-        # Save the model in a pt file
-        torch.save(
-            {
-                "split": k,
-                "opt": opt,
-                "epoch": opt.niter + opt.niter_decay,
-                "data": data,
-                "model_state_dict": model_state_dict,
-                "optimizer_state_dict": optimizer.state_dict(),
-                "metrics": metric_logger,
-            },
-            os.path.join(
-                opt.checkpoints_dir,
-                opt.exp_name,
-                opt.model_name,
-                "%s_%d.pt" % (opt.model_name, k),
-            ),
-        )
+            loss_test, cindex_test, pvalue_test, surv_acc_test, grad_acc_test, pred_test = test(
+                opt, model, data, "test", device
+            )
 
+            # These print at the end - 
+            if opt.task == "surv":
+                print(
+                    "[Final] Apply model to training set: C-Index: %.10f, P-Value: %.10e"
+                    % (cindex_train, pvalue_train)
+                )
+                logging.info(
+                    "[Final] Apply model to training set: C-Index: %.10f, P-Value: %.10e"
+                    % (cindex_train, pvalue_train)
+                )
+                print(
+                    "[Final] Apply model to testing set: C-Index: %.10f, P-Value: %.10e"
+                    % (cindex_test, pvalue_test)
+                )
+                logging.info(
+                    "[Final] Apply model to testing set: cC-Index: %.10f, P-Value: %.10e"
+                    % (cindex_test, pvalue_test)
+                )
+                results.append(cindex_test)
+
+            elif opt.task == "grad":
+                print(
+                    "[Final] Apply model to training set: Loss: %.10f, Acc: %.4f"
+                    % (loss_train, grad_acc_train)
+                )
+                logging.info(
+                    "[Final] Apply model to training set: Loss: %.10f, Acc: %.4f"
+                    % (loss_train, grad_acc_train)
+                )
+                print(
+                    "[Final] Apply model to testing set: Loss: %.10f, Acc: %.4f"
+                    % (loss_test, grad_acc_test)
+                )
+                logging.info(
+                    "[Final] Apply model to testing set: Loss: %.10f, Acc: %.4f"
+                    % (loss_test, grad_acc_test)
+                )
+                results.append(grad_acc_test)
+
+            ### 3.3 Saves Model
+            if len(opt.gpu_ids) > 0 and torch.cuda.is_available():
+                model_state_dict = model.module.cpu().state_dict()
+            else:
+                model_state_dict = model.cpu().state_dict()
+
+            # Save the model in a pt file
+            torch.save(
+                {
+                    "split": k,
+                    "opt": opt,
+                    "epoch": opt.niter + opt.niter_decay,
+                    "data": data,
+                    "model_state_dict": model_state_dict,
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "metrics": metric_logger,
+                },
+                os.path.join(
+                    opt.checkpoints_dir,
+                    opt.exp_name,
+                    opt.model_name,
+                    "%s_%d.pt" % (opt.model_name, k),
+                ),
+            )
+
+            pickle.dump(
+                pred_train,
+                open(
+                    os.path.join(
+                        opt.checkpoints_dir,
+                        opt.exp_name,
+                        opt.model_name,
+                        "%s_%d%spred_train.pkl" % (opt.model_name, k, use_patch),
+                    ),
+                    "wb",
+                ),
+            )
+            pickle.dump(
+                pred_test,
+                open(
+                    os.path.join(
+                        opt.checkpoints_dir,
+                        opt.exp_name,
+                        opt.model_name,
+                        "%s_%d%spred_test.pkl" % (opt.model_name, k, use_patch),
+                    ),
+                    "wb",
+                ),
+            )
+
+
+        print("Split Results:", results)
+        print("Average:", np.array(results).mean())
         pickle.dump(
-            pred_train,
+            results,
             open(
                 os.path.join(
                     opt.checkpoints_dir,
                     opt.exp_name,
                     opt.model_name,
-                    "%s_%d%spred_train.pkl" % (opt.model_name, k, use_patch),
+                    "%s_%d_results.pkl" % (opt.model_name, k)
                 ),
                 "wb",
             ),
         )
-        pickle.dump(
-            pred_test,
-            open(
-                os.path.join(
-                    opt.checkpoints_dir,
-                    opt.exp_name,
-                    opt.model_name,
-                    "%s_%d%spred_test.pkl" % (opt.model_name, k, use_patch),
-                ),
-                "wb",
-            ),
-        )
-
-
-        # print("Split Results:", results)
-        # print("Average:", np.array(results).mean())
-        # pickle.dump(
-        #     results,
-        #     open(
-        #         os.path.join(
-        #             opt.checkpoints_dir,
-        #             opt.exp_name,
-        #             opt.model_name,
-        #             "%s_results.pkl" % opt.model_name,
-        #         ),
-        #         "wb",
-        #     ),
-        # )

@@ -41,7 +41,88 @@ from fusion import *
 from options import parse_args
 from utils import *
 
+from option_file_converter import parse_opt_file
+# Bring across data 
+def info_importer():
+    mode = 'pathgraphomic_fusion'
+    setting = 'surv_15_rnaseq'
+    checkpoints_dir = "./checkpoints/TCGA_GBMLGG"
+    file_path = os.path.join(checkpoints_dir, setting, mode)
+    opt = parse_opt_file(os.path.join(file_path, "train_opt.txt"))
+    opt.use_rnaseq = 0
+    # opt.input_size_omic = 80
 
+    # Adding in changes away from default opmodel options
+    opt.dataroot = './data/TCGA_GBMLGG'
+    opt.verbose = 1
+    opt.print_every = 1
+    opt.checkpoints_dir = checkpoints_dir
+    opt.vgg_features = 0
+    opt.use_vgg_features = 0
+    opt.gpu_ids = []
+
+    if setting=="grad_15" and mode=='pathgraphomic_fusion':
+        opt.model_name = opt.model
+
+    if setting=="surv_15_rnaseq" and mode=="omic":
+        opt.model_name = opt.model
+
+    # RNASeq setting
+    if "omic" in mode:
+        opt.use_rnaseq = 1
+        opt.input_size_omic = 320
+    else:
+        opt.use_rnaseq = 0
+    #   opt.input_size_omic = 80
+
+
+    # Added in code to print changed attributes
+    for attr, value in vars(opt).items():
+        print(f"{attr} = {value}")
+
+    # Set device to MPS if GPU is available
+    device = (
+        torch.device("mps:{}".format(opt.gpu_ids[0]))
+        if opt.gpu_ids
+        else torch.device("cpu")
+    )
+    print("Using device:", device)
+
+    # 1 if the string grad is found in opt.task, 0 otherwise
+    ignore_missing_histype = 1 if "grad" in opt.task else 0
+    ignore_missing_moltype = 1 if "omic" in opt.mode else 0
+
+    # Use_vgg_features defaults to 0 - need to make sure I'm doing this the right way around
+    # Does 1 mean use pre-trained embeddings? Should this be set to 1?
+    use_patch, roi_dir = (
+        ("_patch_", "all_st_patches_512") if opt.use_vgg_features else ("_", "all_st")
+    )
+
+    # Use_rnaseq defaults to 0
+    use_rnaseq = "_rnaseq" if opt.use_rnaseq else ""
+
+    # Currently loading./data/TCGA_GBMLGG/splits/gbmlgg15cv_all_st_1_0_0.pkl
+    #  Not using vgg_features or rnaseq
+    data_cv_path = "%s/splits/gbmlgg15cv_%s_%d_%d_%d%s.pkl" % (
+        opt.dataroot,
+        roi_dir,
+        ignore_missing_moltype,
+        ignore_missing_histype,
+        opt.use_vgg_features,
+        use_rnaseq,
+    )
+    print("Loading %s" % data_cv_path)
+
+    data_cv = pickle.load(open(data_cv_path, "rb"))
+
+    # Extracts the cv_splits from the data
+    data_cv_splits = data_cv['cv_splits']
+    results = []
+
+    ### 3. Sets-Up Main Loop
+    k = 1
+    data = data_cv_splits[k]
+    return data, opt, device, k 
 ################
 # Network Utils
 ################
@@ -52,22 +133,12 @@ def define_net(opt, k):
 
     if opt.mode == "path":
         # changed num_classes to opt.label_dim
+        net = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim)
         # net = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim)
-        net = PathNet(path_dim=32, act=act, num_classes=opt.label_dim)
     elif opt.mode == "graph":
         net = GraphNet(grph_dim=opt.grph_dim, dropout_rate=opt.dropout_rate, GNN=opt.GNN, use_edges=opt.use_edges, pooling_ratio=opt.pooling_ratio, act=act, label_dim=opt.label_dim, init_max=init_max)
     elif opt.mode == "omic":
         net = MaxNet(input_dim=opt.input_size_omic, omic_dim=opt.omic_dim, dropout_rate=opt.dropout_rate, act=act, label_dim=opt.label_dim, init_max=init_max)
-    elif opt.mode == "clin":
-        net = ClinNet(input_clin_dim=opt.input_size_clin, clin_dim=opt.clin_dim, dropout_rate=opt.dropout_rate, act=act, label_dim=opt.label_dim, init_max=init_max)
-    elif opt.mode == "clinclin":
-        net = ClinclinNet(opt=opt, act=act, k=k)
-    elif opt.mode == "clinomic":
-        net = ClinomicNet(opt=opt, act=act, k=k)
-    elif opt.mode == "pathclin":
-        net = PathclinNet(opt=opt, act=act, k=k)
-    elif opt.mode == "pathclinomic":
-        net = PathclinomicNet(opt=opt, act=act, k=k)
     elif opt.mode == "graphomic":
         net = GraphomicNet(opt=opt, act=act, k=k)
     elif opt.mode == "pathomic":
@@ -76,8 +147,6 @@ def define_net(opt, k):
         net = PathgraphNet(opt=opt, act=act, k=k)
     elif opt.mode == "pathgraphomic":
         net = PathgraphomicNet(opt=opt, act=act, k=k)
-    elif opt.mode == "pathclinomic":
-        net = PathclinomicNet(opt=opt, act=act, k=k)
     elif opt.mode == "pathpath":
         net = PathpathNet(opt=opt, act=act, k=k)
     elif opt.mode == "graphgraph":
@@ -178,11 +247,10 @@ def define_trifusion(fusion_type, skip=1, use_bilinear=1, gate1=1, gate2=1, gate
 # Omic Model
 ############
 class MaxNet(nn.Module):
-    def __init__(self, input_dim=362, omic_dim=32, dropout_rate=0.25, act=None, label_dim=1, init_max=True):
+    def __init__(self,  input_dim=80, omic_dim=32, dropout_rate=0.25, act=None, label_dim=1, init_max=True):
         super(MaxNet, self).__init__()
         hidden = [64, 48, 32, 32]
         self.act = act
-
         encoder1 = nn.Sequential(
             nn.Linear(input_dim, hidden[0]),
             nn.ELU(),
@@ -211,70 +279,20 @@ class MaxNet(nn.Module):
         self.output_range = Parameter(torch.FloatTensor([6]), requires_grad=False)
         self.output_shift = Parameter(torch.FloatTensor([-3]), requires_grad=False)
 
-    def forward(self, **kwargs):
-        x = kwargs['x_omic']
+    def forward(self, input, **kwargs):
+        x = input
         # The encoder is 4 sequential blocks of linear layers with ELU activation and dropout
         features = self.encoder(x)
-        # The classifier is a single linear layer
-        out = self.classifier(features)
-        # If an activation function is specified, apply it
-        if self.act is not None:
-            out = self.act(out)
-            # If the activation function is a sigmoid, scale the output to the range specified by output_range and output_shift
-            if isinstance(self.act, nn.Sigmoid):
-                out = out * self.output_range + self.output_shift
-        return features, out
+        # # The classifier is a single linear layer
+        # out = self.classifier(features)
+        # # If an activation function is specified, apply it
+        # if self.act is not None:
+        #     out = self.act(out)
+        #     # If the activation function is a sigmoid, scale the output to the range specified by output_range and output_shift
+        #     if isinstance(self.act, nn.Sigmoid):
+        #         out = out * self.output_range + self.output_shift
+        return features
 
-############
-# Clinical Model
-############
-class ClinNet(nn.Module):
-    def __init__(self, input_clin_dim, clin_dim, dropout_rate=0.25, act=None, label_dim=1, init_max=True):
-        super(ClinNet, self).__init__()
-        hidden = [64, 48, 32, 32]
-        self.act = act
-
-        encoder1 = nn.Sequential(
-            nn.Linear(input_clin_dim, hidden[0]),
-            nn.ELU(),
-            nn.AlphaDropout(p=dropout_rate, inplace=False))
-        
-        encoder2 = nn.Sequential(
-            nn.Linear(hidden[0], hidden[1]),
-            nn.ELU(),
-            nn.AlphaDropout(p=dropout_rate, inplace=False))
-        
-        encoder3 = nn.Sequential(
-            nn.Linear(hidden[1], hidden[2]),
-            nn.ELU(),
-            nn.AlphaDropout(p=dropout_rate, inplace=False))
-
-        encoder4 = nn.Sequential(
-            nn.Linear(hidden[2], clin_dim),
-            nn.ELU(),
-            nn.AlphaDropout(p=dropout_rate, inplace=False))
-        
-        self.encoder = nn.Sequential(encoder1, encoder2, encoder3, encoder4)
-        self.classifier = nn.Sequential(nn.Linear(clin_dim, label_dim))
-
-        if init_max: init_max_weights(self)
-
-        self.output_range = Parameter(torch.FloatTensor([6]), requires_grad=False)
-        self.output_shift = Parameter(torch.FloatTensor([-3]), requires_grad=False)
-
-    def forward(self, **kwargs):
-        x = kwargs['x_clin']
-        # The encoder is 4 sequential blocks of linear layers with ELU activation and dropout
-        features = self.encoder(x)
-        # The classifier is a single linear layer
-        out = self.classifier(features)
-        # If an activation function is specified, apply it
-        if self.act is not None:
-            out = self.act(out)
-            # If the activation function is a sigmoid, scale the output to the range specified by output_range and output_shift
-            if isinstance(self.act, nn.Sigmoid):
-                out = out * self.output_range + self.output_shift
-        return features, out
 
 ############
 # Graph Model
@@ -341,13 +359,12 @@ class GraphNet(torch.nn.Module):
             init_max_weights(self)
             print("Initialzing with Max")
 
-    def forward(self, **kwargs):
-        data = kwargs['x_grph']
+    def forward(self, input, **kwargs):
+        data = input
         data = NormalizeFeaturesV2()(data)
         data = NormalizeEdgesV2()(data)
         x, edge_index, edge_attr, batch = data.x, data.edge_index, data.edge_attr, data.batch
         #x, edge_index, edge_attr, batch = data.x.type(torch.cuda.FloatTensor), data.edge_index.type(torch.cuda.LongTensor), data.edge_attr.type(torch.cuda.FloatTensor), data.batch
-        # x, edge_index, edge_attr, batch = data.x.to(device, dtype=torch.float32), data.edge_index.to(device, dtype=torch.long), data.edge_attr.to(device, dtype=torch.float32), data.batch.to(device)
         x = F.relu(self.conv1(x, edge_index))
         # Modified this to return 6 values instead of 5
         # batch assigns each node to a specific example in the batch
@@ -380,6 +397,7 @@ class GraphNet(torch.nn.Module):
         return features, out
 
 
+
 ############
 # Path Model
 ############
@@ -395,7 +413,7 @@ model_urls = {
 }
 
 
-class SimplePathNet(nn.Module):
+class PathNet(nn.Module):
 
     def __init__(self, features, path_dim=32, act=None, num_classes=1):
         super(PathNet, self).__init__()
@@ -432,55 +450,6 @@ class SimplePathNet(nn.Module):
             x = x.view(x.size(0), -1)
             x = self.classifier(x)
         
-        hazard = self.linear(x)
-        if self.act is not None:
-            hazard = self.act(hazard)
-            if isinstance(self.act, nn.Sigmoid):
-                hazard = hazard * self.output_range + self.output_shift
-        return x, hazard
-
-
-############
-# Path Model
-############
-model_urls = {
-    'vgg11': 'https://download.pytorch.org/models/vgg11-bbd30ac9.pth',
-    'vgg13': 'https://download.pytorch.org/models/vgg13-c768596a.pth',
-    'vgg16': 'https://download.pytorch.org/models/vgg16-397923af.pth',
-    'vgg19': 'https://download.pytorch.org/models/vgg19-dcbb9e9d.pth',
-    'vgg11_bn': 'https://download.pytorch.org/models/vgg11_bn-6002323d.pth',
-    'vgg13_bn': 'https://download.pytorch.org/models/vgg13_bn-abd245e5.pth',
-    'vgg16_bn': 'https://download.pytorch.org/models/vgg16_bn-6c64b313.pth',
-    'vgg19_bn': 'https://download.pytorch.org/models/vgg19_bn-c79401a0.pth',
-}
-
-
-class PathNet(nn.Module):
-
-    def __init__(self, path_dim=32, act=None, num_classes=1):
-        super(PathNet, self).__init__()
-        self.classifier = nn.Sequential(
-            nn.Linear(512 * 7 * 7, 1024),
-            nn.ReLU(True),
-            nn.Dropout(0.25),
-            nn.Linear(1024, 1024),
-            nn.ReLU(True),
-            nn.Dropout(0.25),
-            nn.Linear(1024, path_dim),
-            nn.ReLU(True),
-            nn.Dropout(0.05)
-        )
-
-        self.linear = nn.Linear(path_dim, num_classes)
-        self.act = act
-        self.output_range = Parameter(torch.FloatTensor([6]), requires_grad=False)
-        self.output_shift = Parameter(torch.FloatTensor([-3]), requires_grad=False)
-
-        # dfs_freeze(self.features)
-
-    def forward(self, input):#**kwargs):
-        x = input #kwargs['x_path']
-        x = self.classifier(x)
         hazard = self.linear(x)
         if self.act is not None:
             hazard = self.act(hazard)
@@ -583,22 +552,19 @@ class GraphomicNet(nn.Module):
         return False
 
 
-
 ##############################################################################
 # Path + Omic
 ##############################################################################
 class PathomicNet(nn.Module):
     def __init__(self, opt, act, k):
         super(PathomicNet, self).__init__()
-        self.path_net = PathNet(path_dim=32, act=act, num_classes=opt.label_dim)
+        self.path_net = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim)
         self.omic_net = MaxNet(input_dim=opt.input_size_omic, omic_dim=opt.omic_dim, dropout_rate=opt.dropout_rate, act=act, label_dim=opt.label_dim, init_max=False)
 
         if k is not None:
             pt_fname = '_%d.pt' % k
             best_omic_ckpt = torch.load(os.path.join(opt.checkpoints_dir, opt.exp_name, 'omic', 'omic'+pt_fname), map_location=torch.device('cpu'))
             self.omic_net.load_state_dict(best_omic_ckpt['model_state_dict'])
-            best_path_ckpt = torch.load(os.path.join(opt.checkpoints_dir, opt.exp_name, 'path', 'path'+pt_fname), map_location=torch.device('cpu'))
-            self.path_net.load_state_dict(best_path_ckpt['model_state_dict'])
             print("Loading Models:\n", os.path.join(opt.checkpoints_dir, opt.exp_name, 'omic', 'omic'+pt_fname))
 
         self.fusion = define_bifusion(fusion_type=opt.fusion_type, skip=opt.skip, use_bilinear=opt.use_bilinear, gate1=opt.path_gate, gate2=opt.omic_gate, dim1=opt.path_dim, dim2=opt.omic_dim, scale_dim1=opt.path_scale, scale_dim2=opt.omic_scale, mmhid=opt.mmhid, dropout_rate=opt.dropout_rate)
@@ -645,7 +611,8 @@ class PathgraphomicNet(nn.Module):
     def __init__(self, opt, act, k):
         super(PathgraphomicNet, self).__init__()
         # Features of the PathNet are from the vgg 
-        self.path_net = PathNet(path_dim=32, act=act, num_classes=opt.label_dim)
+        #  Changed these
+        self.path_net = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim)
         self.grph_net = GraphNet(grph_dim=opt.grph_dim, dropout_rate=opt.dropout_rate, use_edges=1, pooling_ratio=0.20, label_dim=opt.label_dim, init_max=False)
         self.omic_net = MaxNet(input_dim=opt.input_size_omic, omic_dim=opt.omic_dim, dropout_rate=opt.dropout_rate, act=act, label_dim=opt.label_dim, init_max=False)
 
@@ -667,20 +634,20 @@ class PathgraphomicNet(nn.Module):
         self.output_shift = Parameter(torch.FloatTensor([-3]), requires_grad=False)
 
     # **kwargs means that the method can accept an arbitrary number of keyword arguments
-    def forward(self, **kwargs):
+    def forward(self, input, **kwargs):
         # Here you are accessing the kwarg associated with x_path and passing it in as a positional argument to pathnet
         # Fix this path_vec 
-        path_vec, _ = self.path_net(kwargs['x_path'])
-        grph_vec, _ = self.grph_net(x_grph=kwargs['x_grph'])
-        omic_vec, _ = self.omic_net(x_omic=kwargs['x_omic'])
+        data, opt, device, k = info_importer()
+
+        # Retrieve Captum Data in the same way as train_test_captum.py
+        x_omic, x_path, x_graph = retrieve_captum_data(opt, data, device, k)   
+        path_vec = self.path_net(x_path)
+        grph_vec = self.grph_net(x_graph)
+        omic_vec = self.omic_net(x_omic)
         features = self.fusion(path_vec, grph_vec, omic_vec)
-        hazard = self.classifier(features)
-        if self.act is not None:
-            hazard = self.act(hazard)
-            # If its a sigmoid, then we need to scale it back to the original range
-            if isinstance(self.act, nn.Sigmoid):
-                hazard = hazard * self.output_range + self.output_shift
-        return features, hazard
+
+
+        return features
 
     def __hasattr__(self, name):
         if '_parameters' in self.__dict__:
@@ -705,7 +672,7 @@ class PathgraphomicNet(nn.Module):
 class PathgraphNet(nn.Module):
     def __init__(self, opt, act, k):
         super(PathgraphNet, self).__init__()
-        self.path_net = PathNet(path_dim=32, act=act, num_classes=opt.label_dim)
+        self.path_net = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim)
         self.grph_net = GraphNet(grph_dim=opt.grph_dim, dropout_rate=opt.dropout_rate, use_edges=1, pooling_ratio=0.20, label_dim=opt.label_dim, init_max=False)
 
         if k is not None:
@@ -754,7 +721,7 @@ class PathgraphNet(nn.Module):
 class PathpathNet(nn.Module):
     def __init__(self, opt, act, k):
         super(PathpathNet, self).__init__()
-        self.path_net = PathNet(act=None, batch_norm=True, label_dim=1, pretrained=True, progress=True)
+        self.path_net = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim)
         self.fusion = define_bifusion(fusion_type=opt.fusion_type, skip=opt.skip, use_bilinear=opt.use_bilinear, gate1=opt.path_gate, gate2=1-opt.path_gate if opt.path_gate else 0, 
             dim1=opt.path_dim, dim2=opt.path_dim, scale_dim1=opt.path_scale, scale_dim2=opt.path_scale, mmhid=opt.mmhid, dropout_rate=opt.dropout_rate)
         self.classifier = nn.Sequential(nn.Linear(opt.mmhid, opt.label_dim))
@@ -851,203 +818,6 @@ class OmicomicNet(nn.Module):
     def forward(self, **kwargs):
         omic_vec, _ = self.omic_net(x_omic=kwargs['x_omic'])
         features = self.fusion(omic_vec, omic_vec)
-        hazard = self.classifier(features)
-        if self.act is not None:
-            hazard = self.act(hazard)
-            if isinstance(self.act, nn.Sigmoid):
-                hazard = hazard * self.output_range + self.output_shift
-        return features, hazard
-
-    def __hasattr__(self, name):
-        if '_parameters' in self.__dict__:
-            _parameters = self.__dict__['_parameters']
-            if name in _parameters:
-                return True
-        if '_buffers' in self.__dict__:
-            _buffers = self.__dict__['_buffers']
-            if name in _buffers:
-                return True
-        if '_modules' in self.__dict__:
-            modules = self.__dict__['_modules']
-            if name in modules:
-                return True
-        return False
-    
-
-
-# Clinensemble nets
-class PathclinomicNet(nn.Module):
-    def __init__(self, opt, act, k):
-        super(PathclinomicNet, self).__init__()
-        # Features of the PathNet are from the vgg 
-        #  Changed these
-        self.path_net = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim)
-        self.clin_net = ClinNet(input_clin_dim=opt.input_size_clin, clin_dim=opt.clin_dim, dropout_rate=opt.dropout_rate, act=act, label_dim=opt.label_dim, init_max=False)
-        self.omic_net = MaxNet(input_dim=opt.input_size_omic, omic_dim=opt.omic_dim, dropout_rate=opt.dropout_rate, act=act, label_dim=opt.label_dim, init_max=False)
-
-        # If k is not None, load the best model
-        if k is not None:
-            pt_fname = '_%d.pt' % k
-            best_clin_ckpt = torch.load(os.path.join(opt.checkpoints_dir, opt.exp_name, 'clin', 'clin'+pt_fname), map_location=torch.device('cpu'))
-            best_omic_ckpt = torch.load(os.path.join(opt.checkpoints_dir, opt.exp_name, 'omic', 'omic'+pt_fname), map_location=torch.device('cpu'))
-            self.clin_net.load_state_dict(best_clin_ckpt['model_state_dict'])
-            self.omic_net.load_state_dict(best_omic_ckpt['model_state_dict'])
-
-        self.fusion = define_trifusion(fusion_type=opt.fusion_type, skip=opt.skip, use_bilinear=opt.use_bilinear, gate1=opt.path_gate, gate2=opt.grph_gate, gate3=opt.clin_gate, dim1=opt.path_dim, dim2=opt.clin_dim, dim3=opt.omic_dim, scale_dim1=opt.path_scale, scale_dim2=opt.clin_scale, scale_dim3=opt.omic_scale, mmhid=opt.mmhid, dropout_rate=opt.dropout_rate)
-        self.classifier = nn.Sequential(nn.Linear(opt.mmhid, opt.label_dim))
-        self.act = act
-        dfs_freeze(self.clin_net)
-        dfs_freeze(self.omic_net)
-        self.output_range = Parameter(torch.FloatTensor([6]), requires_grad=False)
-        self.output_shift = Parameter(torch.FloatTensor([-3]), requires_grad=False)
-
-    # **kwargs means that the method can accept an arbitrary number of keyword arguments
-    def forward(self, **kwargs):
-        # Here you are accessing the kwarg associated with x_path and passing it in as a positional argument to pathnet
-        # Fix this path_vec 
-        path_vec, _ = self.path_net(kwargs['x_path'])
-        clin_vec, _ = self.clin_net(x_clin=kwargs['x_clin'])
-        omic_vec, _ = self.omic_net(x_omic=kwargs['x_omic'])
-        features = self.fusion(path_vec, clin_vec, omic_vec)
-        hazard = self.classifier(features)
-        if self.act is not None:
-            hazard = self.act(hazard)
-            # If its a sigmoid, then we need to scale it back to the original range
-            if isinstance(self.act, nn.Sigmoid):
-                hazard = hazard * self.output_range + self.output_shift
-        return features, hazard
-
-    def __hasattr__(self, name):
-        if '_parameters' in self.__dict__:
-            _parameters = self.__dict__['_parameters']
-            if name in _parameters:
-                return True
-        if '_buffers' in self.__dict__:
-            _buffers = self.__dict__['_buffers']
-            if name in _buffers:
-                return True
-        if '_modules' in self.__dict__:
-            modules = self.__dict__['_modules']
-            if name in modules:
-                return True
-        return False
-
-class PathclinNet(nn.Module):
-    def __init__(self, opt, act, k):
-        super(PathclinNet, self).__init__()
-        self.path_net = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim)
-        self.clin_net = ClinNet(input_clin_dim=opt.input_size_clin, clin_dim=opt.clin_dim, dropout_rate=opt.dropout_rate, act=act, label_dim=opt.label_dim, init_max=False)
-
-        if k is not None:
-            pt_fname = '_%d.pt' % k
-            best_clin_ckpt = torch.load(os.path.join(opt.checkpoints_dir, opt.exp_name, 'clin', 'clin'+pt_fname), map_location=torch.device('cpu'))
-            self.clin_net.load_state_dict(best_clin_ckpt['model_state_dict'])
-
-        self.fusion = define_bifusion(fusion_type=opt.fusion_type, skip=opt.skip, use_bilinear=opt.use_bilinear, gate1=opt.path_gate, gate2=opt.clin_gate, dim1=opt.path_dim, dim2=opt.clin_dim, scale_dim1=opt.path_scale, scale_dim2=opt.clin_scale, mmhid=opt.mmhid, dropout_rate=opt.dropout_rate)
-        self.classifier = nn.Sequential(nn.Linear(opt.mmhid, opt.label_dim))
-        self.act = act
-
-        dfs_freeze(self.clin_net)
-        self.output_range = Parameter(torch.FloatTensor([6]), requires_grad=False)
-        self.output_shift = Parameter(torch.FloatTensor([-3]), requires_grad=False)
-
-    def forward(self, **kwargs):
-        path_vec, _ = self.path_net(kwargs['x_path'])
-        clin_vec, _ = self.clin_net(x_clin = kwargs['x_clin'])
-        features = self.fusion(path_vec, clin_vec)
-        hazard = self.classifier(features)
-        if self.act is not None:
-            hazard = self.act(hazard)
-
-            if isinstance(self.act, nn.Sigmoid):
-                hazard = hazard * self.output_range + self.output_shift
-
-        return features, hazard
-
-    def __hasattr__(self, name):
-        if '_parameters' in self.__dict__:
-            _parameters = self.__dict__['_parameters']
-            if name in _parameters:
-                return True
-        if '_buffers' in self.__dict__:
-            _buffers = self.__dict__['_buffers']
-            if name in _buffers:
-                return True
-        if '_modules' in self.__dict__:
-            modules = self.__dict__['_modules']
-            if name in modules:
-                return True
-        return False
-    
-class ClinomicNet(nn.Module):
-    def __init__(self, opt, act, k):
-        super(ClinomicNet, self).__init__()
-        self.clin_net = ClinNet(input_clin_dim=opt.input_size_clin, clin_dim=opt.clin_dim, dropout_rate=opt.dropout_rate, act=act, label_dim=opt.label_dim, init_max=False)
-        self.omic_net = MaxNet(input_dim=opt.input_size_omic, omic_dim=opt.omic_dim, dropout_rate=opt.dropout_rate, act=act, label_dim=opt.label_dim, init_max=False)
-
-        if k is not None:
-            pt_fname = '_%d.pt' % k
-            best_omic_ckpt = torch.load(os.path.join(opt.checkpoints_dir, opt.exp_name, 'omic', 'omic'+pt_fname), map_location=torch.device('cpu'))
-            self.omic_net.load_state_dict(best_omic_ckpt['model_state_dict'])
-            best_clin_ckpt = torch.load(os.path.join(opt.checkpoints_dir, opt.exp_name, 'clin', 'clin'+pt_fname), map_location=torch.device('cpu'))
-            self.clin_net.load_state_dict(best_clin_ckpt['model_state_dict'])
-
-        self.fusion = define_bifusion(fusion_type=opt.fusion_type, skip=opt.skip, use_bilinear=opt.use_bilinear, gate1=opt.clin_gate, gate2=opt.omic_gate, dim1=opt.clin_dim, dim2=opt.omic_dim, scale_dim1=opt.clin_scale, scale_dim2=opt.omic_scale, mmhid=opt.mmhid, dropout_rate=opt.dropout_rate)
-        self.classifier = nn.Sequential(nn.Linear(opt.mmhid, opt.label_dim))
-        self.act = act
-
-        dfs_freeze(self.clin_net)
-        dfs_freeze(self.omic_net)
-        self.output_range = Parameter(torch.FloatTensor([6]), requires_grad=False)
-        self.output_shift = Parameter(torch.FloatTensor([-3]), requires_grad=False)
-
-    def forward(self, **kwargs):
-        clin_vec, _ = self.clin_net(x_clin=kwargs['x_clin'])
-        omic_vec, _ = self.omic_net(x_omic=kwargs['x_omic'])
-        features = self.fusion(clin_vec, omic_vec)
-        hazard = self.classifier(features)
-        if self.act is not None:
-            hazard = self.act(hazard)
-
-            if isinstance(self.act, nn.Sigmoid):
-                hazard = hazard * self.output_range + self.output_shift
-
-        return features, hazard
-
-    def __hasattr__(self, name):
-        if '_parameters' in self.__dict__:
-            _parameters = self.__dict__['_parameters']
-            if name in _parameters:
-                return True
-        if '_buffers' in self.__dict__:
-            _buffers = self.__dict__['_buffers']
-            if name in _buffers:
-                return True
-        if '_modules' in self.__dict__:
-            modules = self.__dict__['_modules']
-            if name in modules:
-                return True
-        return False
-    
-class ClinclinNet(nn.Module):
-    def __init__(self, opt, act, k):
-        super(ClinclinNet, self).__init__()
-        self.clin_net = ClinNet(input_clin_dim=opt.input_size_clin, clin_dim=opt.clin_dim, dropout_rate=opt.dropout_rate, act=act, label_dim=opt.label_dim, init_max=False)
-        if k is not None:
-            pt_fname = '_%d.pt' % k
-            best_clin_ckpt = torch.load(os.path.join(opt.checkpoints_dir, opt.exp_name, 'clin', 'clin'+pt_fname), map_location=torch.device('cpu'))
-            self.clin_net.load_state_dict(best_clin_ckpt['model_state_dict'])
-        self.fusion = define_bifusion(fusion_type=opt.fusion_type, skip=opt.skip, use_bilinear=opt.use_bilinear, gate1=opt.clin_gate, gate2=1-opt.clin_gate if opt.clin_gate else 0, 
-            dim1=opt.clin_dim, dim2=opt.clin_dim, scale_dim1=opt.clin_scale, scale_dim2=opt.clin_scale, mmhid=opt.mmhid, dropout_rate=opt.dropout_rate)
-        self.classifier = nn.Sequential(nn.Linear(opt.mmhid, opt.label_dim))
-        self.act = act
-        dfs_freeze(self.clin_net)
-        self.output_range = Parameter(torch.FloatTensor([6]), requires_grad=False)
-        self.output_shift = Parameter(torch.FloatTensor([-3]), requires_grad=False)
-
-    def forward(self, **kwargs):
-        clin_vec, _ = self.clin_net(x_clin=kwargs['x_clin'])
-        features = self.fusion(clin_vec, clin_vec)
         hazard = self.classifier(features)
         if self.act is not None:
             hazard = self.act(hazard)

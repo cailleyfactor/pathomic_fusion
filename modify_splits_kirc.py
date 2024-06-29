@@ -2,6 +2,7 @@ import pickle
 import pandas as pd
 import os
 import numpy as np
+from sklearn.preprocessing import StandardScaler
 pd.set_option('future.no_silent_downcasting', True)
 
 pkl_path = "./data/TCGA_KIRC/splits/KIRC_st_0.pkl"
@@ -10,9 +11,30 @@ clinical_data = pd.read_csv(os.path.join("./data/TCGA_KIRC/", "kirc_tcga_pan_can
 
 # Filter the clinical data into just the columns I'm interested in
 clinical_data = clinical_data[['Patient ID', 'Diagnosis Age', 'Aneuploidy Score', 'Sex', 'Buffa Hypoxia Score', 'Fraction Genome Altered', 'Neoplasm Disease Stage American Joint Committee on Cancer Code', 'American Joint Committee on Cancer Metastasis Stage Code', 'Primary Lymph Node Presentation Assessment', 'Prior Diagnosis']]
+# clinical_data = clinical_data[['Patient ID', 'Diagnosis Age', 'Sex', 'Buffa Hypoxia Score','Neoplasm Disease Stage American Joint Committee on Cancer Code', 'American Joint Committee on Cancer Metastasis Stage Code', 'Primary Lymph Node Presentation Assessment', 'Prior Diagnosis']]
 
 # One hot-encode certain columns
 clinical_data = pd.get_dummies(clinical_data, columns=['Sex'], drop_first=True)
+
+# Scale age
+ages = clinical_data[['Diagnosis Age']]
+scaler = StandardScaler()
+clinical_data['Diagnosis Age'] = scaler.fit_transform(ages)
+
+# Scale aneuploidy scores 
+aneuploidy = clinical_data[['Aneuploidy Score']]
+scaler = StandardScaler()
+clinical_data['Aneuploidy Score'] = scaler.fit_transform(aneuploidy)
+
+# Scale buffa hypoxia score
+buffa = clinical_data[['Buffa Hypoxia Score']]
+scaler = StandardScaler()
+clinical_data['Buffa Hypoxia Score'] = scaler.fit_transform(buffa)
+
+# Scale fraction genome altered
+buffa = clinical_data[['Fraction Genome Altered']]
+scaler = StandardScaler()
+clinical_data['Fraction Genome Altered'] = scaler.fit_transform(buffa)
 
 # Fixing columns
 stage_to_int = {

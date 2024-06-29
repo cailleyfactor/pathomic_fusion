@@ -106,10 +106,18 @@ class MakeEmbeddingsDatasetLoader(Dataset):
         single_e = torch.tensor(self.e[index]).type(torch.FloatTensor)
         single_t = torch.tensor(self.t[index]).type(torch.FloatTensor)
         single_g = torch.tensor(self.g[index]).type(torch.LongTensor)
-
+        image_path = self.X_path[index]
+        try:
+            single_X_path = Image.open(image_path).convert('RGB')
+        except FileNotFoundError:
+            print(f"File not found: {image_path}")
+        except IOError:
+            print(f"IOError: Cannot open image at path: {image_path}. It might be corrupted.")
+        except Exception as e:
+            print(f"Unexpected error opening image at path: {image_path}\n{e}")
         if self.mode == "path" or self.mode == 'pathpath':
-            single_X_pathfilename = (self.X_path[index])
-            single_X_path = Image.open(self.X_path[index]).convert('RGB')
+            single_X_pathfilename = (image_path)
+            single_X_path = Image.open(image_path).convert('RGB')
             return (self.transforms(single_X_path), single_X_pathfilename, 0, single_e, single_t, single_g)
         elif self.mode == "graph" or self.mode == 'graphgraph':
             single_X_grph = torch.load(self.X_grph[index])
@@ -118,7 +126,7 @@ class MakeEmbeddingsDatasetLoader(Dataset):
             single_X_omic = torch.tensor(self.X_omic[index]).type(torch.FloatTensor)
             return (0, 0, single_X_omic, single_e, single_t, single_g)
         elif self.mode == "pathomic":
-            single_X_path = Image.open(self.X_path[index]).convert('RGB')
+            single_X_path = Image.open(image_path).convert('RGB')
             single_X_omic = torch.tensor(self.X_omic[index]).type(torch.FloatTensor)
             return (self.transforms(single_X_path), 0, single_X_omic, single_e, single_t, single_g)
         elif self.mode == "graphomic":
@@ -126,11 +134,11 @@ class MakeEmbeddingsDatasetLoader(Dataset):
             single_X_omic = torch.tensor(self.X_omic[index]).type(torch.FloatTensor)
             return (0, single_X_grph, single_X_omic, single_e, single_t, single_g)
         elif self.mode == "pathgraph":
-            single_X_path = Image.open(self.X_path[index]).convert('RGB')
+            single_X_path = Image.open(image_path).convert('RGB')
             single_X_grph = torch.load(self.X_grph[index])
             return (self.transforms(single_X_path), single_X_grph, 0, single_e, single_t, single_g)
         elif self.mode == "pathgraphomic":
-            single_X_path = Image.open(self.X_path[index]).convert('RGB')
+            single_X_path = Image.open(image_path).convert('RGB')
             single_X_grph = torch.load(self.X_grph[index])
             single_X_omic = torch.tensor(self.X_omic[index]).type(torch.FloatTensor)
             return (self.transforms(single_X_path), single_X_grph, single_X_omic, single_e, single_t, single_g)
@@ -300,8 +308,9 @@ class UseEmbeddingsKircClinDatasetLoader(Dataset):
         single_g = torch.tensor(self.g[index]).type(torch.LongTensor)
 
         if self.mode == "path" or self.mode == 'pathpath':
-            single_X_path = Image.open(self.X_path[index]).convert('RGB')
-            return (self.transforms(single_X_path), 0, 0, single_e, single_t, single_g)
+            # single_X_path = Image.open(self.X_path[index]).convert('RGB')
+            single_X_path = self.X_path[index]
+            return (single_X_path, 0, 0, single_e, single_t, single_g)
         # elif self.mode == "graph" or self.mode == 'graphgraph':
         #     single_X_grph = torch.load(self.X_grph[index])
         #     return (0, single_X_grph, 0, single_e, single_t, single_g)
