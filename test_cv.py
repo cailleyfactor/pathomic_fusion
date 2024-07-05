@@ -6,16 +6,16 @@ import pickle
 import torch
 
 # Env
-from networks import define_net
+from networks_use_emb import define_net
 from data_loaders import *
 from options import parse_args
-from train_test import train, test
+from train_test_use_emb import train, test
 from option_file_converter import parse_opt_file
 
 checkpoints_dir = "./checkpoints/TCGA_GBMLGG"
 setting = 'surv_15_rnaseq'
 
-for mode in ["pathpath_fusion", "omicomic_fusion", "graphgraph_fusion"]:#"omic", "graph", "path", "pathomic_fusion", "graphomic_fusion", "pathgraphomic_fusion", "pathgraph_fusion"]:
+for mode in ["omic", "graph", "path", "pathomic_fusion", "graphomic_fusion", "pathgraphomic_fusion", "pathgraph_fusion"]:
 	### 1. Initializes parser and device
 	file_path = os.path.join(checkpoints_dir, setting, mode)
 	opt = parse_opt_file(os.path.join(file_path, "train_opt.txt"))
@@ -76,41 +76,41 @@ for mode in ["pathpath_fusion", "omicomic_fusion", "graphgraph_fusion"]:#"omic",
 	results = []
 
 	### 3. Sets-Up Main Loop
-	k = 1
-	data = data_cv_splits[k]
-	### 3. Sets-Up Main Loop
-	# for k, data in data_cv_splits.items():
-	print("*******************************************")
-	print("************** SPLIT (%d/%d) **************" % (k, len(data_cv_splits.items())))
-	print("*******************************************")
-	load_path = os.path.join(opt.checkpoints_dir, opt.exp_name, opt.model_name, '%s_%d.pt' % (opt.model_name, k))
-	model_ckpt = torch.load(load_path, map_location=device)
+	for k in range(1,6):
+		data = data_cv_splits[k]
+		### 3. Sets-Up Main Loop
+		# for k, data in data_cv_splits.items():
+		print("*******************************************")
+		print("************** SPLIT (%d/%d) **************" % (k, len(data_cv_splits.items())))
+		print("*******************************************")
+		load_path = os.path.join(opt.checkpoints_dir, opt.exp_name, opt.model_name, '%s_%d.pt' % (opt.model_name, k))
+		model_ckpt = torch.load(load_path, map_location=device)
 
-	#### Loading Env
-	model_state_dict = model_ckpt['model_state_dict']
-	if hasattr(model_state_dict, '_metadata'): del model_state_dict._metadata
+		#### Loading Env
+		model_state_dict = model_ckpt['model_state_dict']
+		if hasattr(model_state_dict, '_metadata'): del model_state_dict._metadata
 
-	model = define_net(opt, None)
-	if isinstance(model, torch.nn.DataParallel): model = model.module
+		model = define_net(opt, None)
+		if isinstance(model, torch.nn.DataParallel): model = model.module
 
-	print('Loading the model from %s' % load_path)
-	model.load_state_dict(model_state_dict)
+		print('Loading the model from %s' % load_path)
+		model.load_state_dict(model_state_dict)
 
 
-	### 3.2 Evalutes Train + Test Error, and Saves Model
-	loss_test, cindex_test, pvalue_test, surv_acc_test, grad_acc_test, pred_test = test(opt, model, data, 'test', device)
+		### 3.2 Evalutes Train + Test Error, and Saves Model
+		loss_test, cindex_test, pvalue_test, surv_acc_test, grad_acc_test, pred_test = test(opt, model, data, 'test', device)
 
-	if opt.task == 'surv':
-		print("[Final] Apply model to testing set: C-Index: %.10f, P-Value: %.10e" % (cindex_test, pvalue_test))
-		logging.info("[Final] Apply model to testing set: cC-Index: %.10f, P-Value: %.10e" % (cindex_test, pvalue_test))
-		results.append(cindex_test)
-	elif opt.task == 'grad':
-		print("[Final] Apply model to testing set: Loss: %.10f, Acc: %.4f" % (loss_test, grad_acc_test))
-		logging.info("[Final] Apply model to testing set: Loss: %.10f, Acc: %.4f" % (loss_test, grad_acc_test))
-		results.append(grad_acc_test)
+		if opt.task == 'surv':
+			print("[Final] Apply model to testing set: C-Index: %.10f, P-Value: %.10e" % (cindex_test, pvalue_test))
+			logging.info("[Final] Apply model to testing set: cC-Index: %.10f, P-Value: %.10e" % (cindex_test, pvalue_test))
+			results.append(cindex_test)
+		elif opt.task == 'grad':
+			print("[Final] Apply model to testing set: Loss: %.10f, Acc: %.4f" % (loss_test, grad_acc_test))
+			logging.info("[Final] Apply model to testing set: Loss: %.10f, Acc: %.4f" % (loss_test, grad_acc_test))
+			results.append(grad_acc_test)
 
-		# ### 3.3 Saves Model
-		# pickle.dump(pred_test, open(os.path.join(opt.checkpoints_dir, opt.exp_name, opt.model_name, '%s_%d%spred_test.pkl' % (opt.model_name, k, use_patch)), 'wb'))
+			# ### 3.3 Saves Model
+			# pickle.dump(pred_test, open(os.path.join(opt.checkpoints_dir, opt.exp_name, opt.model_name, '%s_%d%spred_test.pkl' % (opt.model_name, k, use_patch)), 'wb'))
 
 	print('Split Results:', results)
 	print("Average:", np.array(results).mean())

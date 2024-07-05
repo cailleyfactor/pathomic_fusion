@@ -4,25 +4,18 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from core.utils_analysis_new import *
-from sklearn.metrics import roc_curve, auc, roc_auc_score
+from sklearn.metrics import roc_curve, auc, roc_auc_score, RocCurveDisplay, average_precision_score, f1_score
 import matplotlib.pyplot as plt
-# from sklearn.preprocessing import label_binarize
-from sklearn.metrics import RocCurveDisplay
 from itertools import cycle
 from lifelines import KaplanMeierFitter
 import pickle
 from scipy.stats import zscore
-from sklearn.metrics import roc_auc_score, average_precision_score, f1_score
 from scipy.special import softmax
+import os
+from lifelines.statistics import logrank_test
 
-# Making the loss curves nicer
-# Load in the saved model information from the checkpoints
-import math
-import os
-import os
-import math
-import pandas as pd
-import matplotlib.pyplot as plt
+plt.rc('text', usetex=True)
+
 
 checkpoints_dir = './checkpoints/TCGA_GBMLGG'
 
@@ -52,9 +45,9 @@ metric_mapping = {
 }
 
 num_cols = len(model_names)
-num_rows = 2  # One row for loss plots, one row for accuracy plots
+num_rows = 2 
 exp_name = 'grad_15'
-results = 'results_embeddings'
+results = 'results'
 fig, axes = plt.subplots(num_rows, num_cols, figsize=(20, 15))
 
 train_color = 'blue'
@@ -95,32 +88,30 @@ for metric_index, metric in enumerate(metrics):
         ax.fill_between(epochs, test_mean - test_std, test_mean + test_std, color=test_color, alpha=0.3)
 
         if row == 0:
-            ax.set_title(model_mappings.get(model_name, model_name))
+            ax.set_title(rf'$\textbf{{{model_mappings.get(model_name, model_name)}}}$', fontsize=16)
         if row == num_rows - 1:
-            ax.set_xlabel('Epoch')
-        ax.set_ylabel(metric_mapping.get(metric, metric))
+            ax.set_xlabel('Epoch', fontsize=14)
+        if col == 0:
+            ax.set_ylabel(metric_mapping.get(metric, metric), fontsize=14)
         if col == 0 and metric_index == 0:
             ax.legend()
         if metric == 'loss':
-            ax.set_ylim(0, 2)  
-        elif metric == 'surv_acc':
-            ax.set_ylim(0, 1)  
-        else:
-            ax.set_ylim(0, 1)  
+            ax.set_ylim(0, 2)
+        elif metric == 'grad_acc':
+            ax.set_ylim(0, 1)
 
-plt.tight_layout(rect=[0, 0, 1, 0.96])
+plt.tight_layout()
 
 # Create the directory if it does not exist
 os.makedirs(os.path.join(checkpoints_dir, eval_folder), exist_ok=True)
 
 # Save the plot
-plot_filepath = os.path.join(checkpoints_dir, eval_folder, f'{exp_name}_performance_plot_grade_gbmlgg_stdev.png')
+plot_filepath = os.path.join(checkpoints_dir, eval_folder, f'{exp_name}_grade_losses_gbmlgg.png')
 plt.savefig(plot_filepath)
 plt.show()
 
-
 # %%
-### Summary tables for TCGA_GBMLGG
+### Summary tables for TCGA_GBMLGG for grade information
 # Define relabeling dictionaries
 model_mappings = {
     'graph': 'Graph GCN',
@@ -180,7 +171,6 @@ metrics_df = pd.DataFrame(metrics_list)
 # # Display the DataFrame
 # print(metrics_df)
 
-
 # Compute average and standard deviation
 avg_metrics = metrics_df.groupby('Model').mean().reset_index()
 std_metrics = metrics_df.groupby('Model').std().reset_index()
@@ -229,7 +219,7 @@ metric_mapping = {
 checkpoints_dir = './checkpoints/TCGA_GBMLGG'
 metrics = ['loss', 'cindex', 'surv_acc']
 eval_folder = 'evaluation'
-results = 'results_embeddings'
+results = 'results'
 
 # Calculate the number of rows and columns for the grid
 num_cols = len(model_names)
@@ -277,10 +267,11 @@ for metric_index, metric in enumerate(metrics):
         ax.fill_between(epochs, test_mean - test_std, test_mean + test_std, color=test_color, alpha=0.3)
 
         if row == 0:
-            ax.set_title(model_mappings.get(model_name, model_name))
+            ax.set_title(rf'$\textbf{{{model_mappings.get(model_name, model_name)}}}$', fontsize=16)
         if row == num_rows - 1:
-            ax.set_xlabel('Epoch')
-        ax.set_ylabel(metric_mapping.get(metric, metric))
+            ax.set_xlabel('Epoch', fontsize=14)
+        if col == 0:
+            ax.set_ylabel(metric_mapping.get(metric, metric), fontsize = 14)
         if col == 0 and metric_index == 0:
             ax.legend()
         if metric == 'loss':
@@ -296,10 +287,47 @@ plt.tight_layout(rect=[0, 0, 1, 0.96])
 os.makedirs(os.path.join(checkpoints_dir, eval_folder), exist_ok=True)
 
 # Save the plot
-plot_filepath = os.path.join(checkpoints_dir, eval_folder, f'{exp_name}_performance_plot_surv_gbmlgg_stdev.png')
+plot_filepath = os.path.join(checkpoints_dir, eval_folder, f'{exp_name}_performance_plot_surv_gbmlgg.png')
 plt.savefig(plot_filepath)
-plt.show()
-# plt.close()
+
+# %%
+### Summary tables for TCGA_GBMLGG
+# Define relabeling dictionaries
+model_mappings = {
+    'graph': 'Graph GCN',
+    'path': 'Histology CNN',
+    'omic': 'Genomic SNN',
+    'pathomic_fusion': 'Pathomic Fusion (CNN+SNN)',
+    'graphomic_fusion': 'Graphomic Fusion (GCN+SNN)',
+    'pathgraphomic_fusion': 'Pathgraphomic Fusion (CNN+GCN+SNN)',
+    'pathgraph_fusion': 'Pathgraph Fusion (CNN+GCN)',
+    'omicomic_fusion': 'Omicomic Fusion (SNN+SNN)', 
+    'pathpath_fusion': 'Pathpath Fusion (CNN+CNN)',  
+    'graphgraph_fusion': 'Graphgraph Fusion (GCN+GCN)'  
+}
+# List of model names
+model_names = ['path','graph','omic','pathomic_fusion','graphomic_fusion','pathgraph_fusion', 'pathgraphomic_fusion']
+
+# Initialize list to store metrics
+metrics_list = []
+
+# Extract metrics for each model
+for model in model_names:
+    results_loc = os.path.join(checkpoints_dir, 'surv_15_rnaseq', model, f'{model}_5_results.pkl')
+    with open(results_loc, 'rb') as f:
+        results = pickle.load(f)
+        metrics_list.append({
+            "Model": model,
+            "Mean C-index": np.mean(results),
+            "Standard Deviation": np.std(results)
+        })
+        print(results)
+
+# Create DataFrame
+summary_df = pd.DataFrame(metrics_list)
+
+# Display DataFrame
+print(summary_df)
 
 # %%
 #### ROC, AUC Plots - for just path and pgo as in the paper
@@ -309,9 +337,16 @@ from sklearn.metrics import roc_curve, auc
 from scipy import interp
 from itertools import cycle
 
+grade_mappings = {
+    '2': 'II',
+    '3': 'III',
+    '4': 'IV'
+}
+
 # Models and grades
 model_names = ['path',  'pathgraphomic_fusion']
 grades = [2, 3, 4]
+eval_folder = 'evaluation'
 
 # Initialize plot
 fig, axes = plt.subplots(1, len(grades) + 1, figsize=(30, 8))
@@ -353,17 +388,20 @@ for idx, grade in enumerate(grades + ['overall']):
         tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
         ax.fill_between(mean_fpr, tprs_lower, tprs_upper, alpha=0.2)
     
-    ax.set_title(f'Grade {grade}' if grade != 'overall' else 'Overall')
-    ax.set_xlabel('1-Specificity')
-    ax.set_ylabel('Sensitivity')
-    ax.legend(loc='lower right')
+    ax.set_title(rf'$\textbf{{Grade {grade_mappings.get(str(grade), grade)}}}$' if grade != 'overall' else rf'$\textbf{{Overall}}$', fontsize=16)
+    ax.set_xlabel('1-Specificity', fontsize=16)
+    ax.set_ylabel('Sensitivity', fontsize=16)
+    ax.legend(loc='lower right', fontsize=15)
 
+# Adjust the spacing between subplots
 plt.tight_layout()
+plot_filepath = os.path.join(checkpoints_dir, eval_folder, f'roc_curves_path_pgo.png')
+plt.savefig(plot_filepath)
 plt.show()
+plt.close()
 
 #%%
-## Original ROC plots
-
+# ROC plots by model type for all grades
 # Define relabeling dictionaries
 model_mappings = {
     'graph': 'Graph GCN',
@@ -371,16 +409,22 @@ model_mappings = {
     'omic': 'Genomic SNN',
     'pathomic_fusion': 'Pathomic Fusion (CNN+SNN)',
     'graphomic_fusion': 'Graphomic Fusion (GCN+SNN)',
-    'pathgraphomic_fusion': 'Pathgraphomic Fusion (CNN+GCN+SNN)',
+    'pathgraphomic_fusion': 'Pathgraphomic F.',
     'pathgraph_fusion': 'Pathgraph Fusion (CNN+GCN)',
     'omicomic_fusion': 'Omicomic Fusion (SNN+SNN)', 
     'pathpath_fusion': 'Pathpath Fusion (CNN+CNN)',  
     'graphgraph_fusion': 'Graphgraph Fusion (GCN+GCN)'  
 }
 
+grade_mappings = {
+    0: 'II',
+    1: 'III',
+    2: 'IV'
+}
+
 # List of model names
-model_names = ['path',  'pathgraphomic_fusion']
-fig, axes = plt.subplots(1, len(model_names), figsize=(10, 5))
+model_names = ['path', 'graphomic_fusion', 'pathomic_fusion', 'pathgraph_fusion','pathgraphomic_fusion']
+fig, axes = plt.subplots(1, len(model_names), figsize=(35, 8))
 
 for idx, model in enumerate(model_names):
     for k in range(1, 6):
@@ -458,8 +502,8 @@ for idx, model in enumerate(model_names):
     
     # Customize the plot
     ax.set(
-        xlabel="False Positive Rate",
-        ylabel="True Positive Rate",
+        xlabel="1 - Specificity",
+        ylabel="Sensitivity",
         title=f"{model_mappings.get(model, model)}"
     )
     ax.legend(loc="lower right")
@@ -471,16 +515,8 @@ plt.savefig(plot_filepath)
 plt.show()
 plt.close()
 
-# Print micro-averaged and macro-averaged ROC AUC scores
-print(f"Micro-averaged One-vs-Rest ROC AUC score: {roc_auc['micro']:.2f}")
-print(f"Macro-averaged One-vs-Rest ROC AUC score: {roc_auc['macro']:.2f}")
-
 #%%
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from lifelines import KaplanMeierFitter
-
+# KM plot by mutation status
 # Define relabeling dictionaries
 model_mappings = {
     'graph': 'Graph GCN',
@@ -488,7 +524,7 @@ model_mappings = {
     'omic': 'Genomic SNN',
     'pathomic_fusion': 'Pathomic Fusion (CNN+SNN)',
     'graphomic_fusion': 'Graphomic Fusion (GCN+SNN)',
-    'pathgraphomic_fusion': 'Pathgraphomic Fusion (CNN+GCN+SNN)',
+    'pathgraphomic_fusion': 'Pathgraphomic F.',
     'pathgraph_fusion': 'Pathgraph Fusion (CNN+GCN)',
     'omicomic_fusion': 'Omicomic Fusion (SNN+SNN)', 
     'pathpath_fusion': 'Pathpath Fusion (CNN+CNN)',  
@@ -504,8 +540,20 @@ models = ['graph', 'path', 'omic', 'pathgraphomic_fusion']
 
 fig, axs = plt.subplots(4, 4, figsize=(20, 20))
 
-def apply_oligodendro_condition(grade_status_predicted):
-    return np.where((grade_status_predicted == 2) | (grade_status_predicted == 3), 1, grade_status_predicted)
+grade_mapping = {
+    0: 'Low',
+    1: 'Mid',
+    2: 'High'
+}
+
+grade_mapping_rome = {
+    0: 'II',
+    1: 'III',
+    2: 'IV'
+
+}
+# def apply_oligodendro_condition(grade_status_predicted):
+#     return np.where((grade_status_predicted == 2) | (grade_status_predicted == 3), 1, grade_status_predicted)
 
 for j, model in enumerate(models):
     data_saver = []
@@ -515,32 +563,36 @@ for j, model in enumerate(models):
     data = pd.concat(data_saver, ignore_index=True)
     data['TCGA ID'] = data['Patient ID']
     data_merge = data.merge(df, on='TCGA ID', how='left')
-    full_data = data_merge
+    full_data = data_merge.copy()
     model_name = model_mappings.get(model, 'Unknown Model')
     
     from utils import getCleanAllDataset
-    metadata, all_dataset = getCleanAllDataset(use_rnaseq=True)
+    metadata, all_datasetc = getCleanAllDataset(use_rnaseq=True)
+    all_dataset = all_datasetc.copy()
     astro_wt_ids = all_dataset.loc[all_dataset.iloc[:, 0] == 'idhwt_ATC', 'TCGA ID'].values
+    all_dataset = all_datasetc.copy()
     astro_mut_ids = all_dataset.loc[all_dataset.iloc[:, 0] == 'idhmut_ATC', 'TCGA ID'].values
+    all_dataset = all_datasetc.copy()
     oligodendro_ids = all_dataset.loc[all_dataset.iloc[:, 0] == 'ODG', 'TCGA ID'].values
 
     # Filter the full_data DataFrame by the extracted IDs
     datasets = {
-        'Astro WT': full_data[full_data['TCGA ID'].isin(astro_wt_ids)],
-        'Astro Mut': full_data[full_data['TCGA ID'].isin(astro_mut_ids)],
-        'Oligodendro': full_data[full_data['TCGA ID'].isin(oligodendro_ids)],
-        'Full': full_data
+        r'\textbf{IDHwt astrocytoma}': full_data[full_data['TCGA ID'].isin(astro_wt_ids)],
+        r'\textbf{IDH-mutant astrocytoma}': full_data[full_data['TCGA ID'].isin(astro_mut_ids)],
+        r'\textbf{Oligodendroglioma}': full_data[full_data['TCGA ID'].isin(oligodendro_ids)],
+        r'\textbf{Overall}': full_data
     }
 
     for i, (dataset_name, dataset) in enumerate(datasets.items()):
+        print(dataset.shape)
         grade_status = dataset['Grade Status']
         hazards = dataset['Hazards']
         censor_status = dataset['Censor Status']
         survival_times = dataset['Survival Time']
         survival_times = survival_times // 365
 
-        if dataset_name == 'Oligodendro':
-            grade_status_predicted = apply_oligodendro_condition(grade_status_predicted)
+        # if dataset_name == 'Oligodendro':
+        #     grade_status_predicted = apply_oligodendro_condition(grade_status_predicted)
 
         kmf = KaplanMeierFitter()
 
@@ -552,10 +604,10 @@ for j, model in enumerate(models):
         for grade, color in zip([0, 1, 2], colours):
             mask = (grade_status == grade)
             if mask.any():
-                kmf.fit(durations=survival_times[mask], event_observed=censor_status[mask], label=f'True Grade {grade+2}')
-                axs[i, j].plot(kmf.survival_function_, linestyle="--", color=color)
+                kmf.fit(durations=survival_times[mask], event_observed=censor_status[mask], label=f'Grade {grade+2}')
+                axs[i, j].plot(kmf.survival_function_, linestyle="--", color=color, label=f'Grade {grade_mapping_rome[grade]}')
                 if j == 0:
-                    axs[i, j].set_ylabel(f'{dataset_name}\nOverall\nProportion Surviving')
+                    axs[i, j].set_ylabel(f'{dataset_name}\nProportion Surviving', fontsize=14)
 
         for grade, color in zip([0, 1, 2], colours):
             if grade == 2:
@@ -563,21 +615,29 @@ for j, model in enumerate(models):
             else:
                 mask = (grade_status_predicted == grade)
 
+            # mask = (grade_status_predicted == grade)
 
-            mask = (grade_status_predicted == grade)
-
-            if dataset_name == 'Oligodendro' and grade == 2:
+            if dataset_name == r'\textbf{Oligodendroglioma}' and grade == 2:
                 continue  # Skip plotting for grade 2 in Oligodendro
             
             if mask.any():
-                kmf.fit(durations=survival_times[mask], event_observed=censor_status[mask], label=f'Predicted Grade {grade+2} from Hazards')
-                axs[i, j].plot(kmf.survival_function_, linestyle="-", color=color)
+                kmf.fit(durations=survival_times[mask], event_observed=censor_status[mask])
+                axs[i, j].plot(kmf.survival_function_, linestyle="-", color=color, label=f'{model_name} ({grade_mapping[grade]})')
                 axs[i, j].set_xlim([0, 15])
-                axs[i, j].set_title(f'{model_name}')
-        axs[i, j].set_xlabel('Survival time (years)')
-plt.tight_layout()
-plt.show()
+                if i == 0:
+                    axs[i, j].set_title(rf'\textbf{{{model_name}}}', fontsize=14)
+        if i==1:
+            # Collect legend handles and labels for each plot in the first row
+            handle, label = axs[i, j].get_legend_handles_labels()
+            print(handle, label)
+            axs[0, j].legend(handle, label, loc='upper right', fontsize=13)
 
+        if i == 3:
+            axs[i, j].set_xlabel('Survival time (years)', fontsize=14)
+
+plt.tight_layout()
+plot_filepath = os.path.join(checkpoints_dir, eval_folder, f'km_curves_four.png')
+plt.savefig(plot_filepath)
 
 # %% 
 #### Kaplan- Meier Curves for all models for overall survival only
@@ -595,91 +655,151 @@ model_mappings = {
     'graphgraph_fusion': 'Graphgraph Fusion (GCN+GCN)'  
 }
 
-# Adding for idh mutation
-df1 = pd.read_csv('./data/TCGA_GBMLGG/all_dataset.csv')
-# Adding for histology
-df2 = pd.read_csv('./data/TCGA_GBMLGG/grade_data.csv')
-c=[(-1.5, -0.5), (1, 1.25), (1.25, 1.5)]
-df = df1.merge(df2, on='TCGA ID', how='left') 
+mol_subtype_mapping = {
+    'idhwt_ATC': 'IDHwt Astrocytoma',
+    'idhmut_ATC': 'IDHmut Astrocytoma',
+    'ODG': 'Oligodendroglioma'
+}
+
+histology_mapping = {
+    '0': 'Low',
+    '1': 'Mid',
+    '2': 'High'
+}
+
+grade_mapping = {
+    '0': 'II',
+    '1': 'III',
+    '2': 'IV'
+}
+
+# Adding for idh mutation status
+from utils import getCleanAllDataset
+metadata, all_dataset = getCleanAllDataset(use_rnaseq=True)
+all_dataset = all_dataset.reset_index(drop=True)
 
 split = 'test'
 use_patch = '_'
-k=1
 fig, axs = plt.subplots(1, 4, figsize=(20, 5))
 
-for j, model in enumerate(['graph', 'path', 'omic', 'pathgraphomic_fusion']):
-    data_saver= []
+model = 'pathgraphomic_fusion'
+model_name = model_mappings.get(model, 'Unknown Model') 
+
+data_saver= []
+def km_data_organiser(model):
     for k in range(1,6):
         data = load_and_process_survival_data(model, k, use_patch, split, ckpt_name='./checkpoints/TCGA_GBMLGG/surv_15_rnaseq')
         data_saver.append(data)
     data = pd.concat(data_saver, ignore_index=True)
-    data['TCGA ID']=data['Patient ID']
-    data_merge = data.merge(df, on='TCGA ID', how='left')
-    full_data = data_merge
-    model_name = model_mappings.get(model, 'Unknown Model')
-    data = full_data
-    print(data.shape)
-
-    from utils import getCleanAllDataset
-    metadata, all_dataset = getCleanAllDataset(use_rnaseq=True)
-    astro_wt_ids = all_dataset.loc[all_dataset.iloc[:, 0] == 'idhwt_ATC', 'TCGA ID'].values
-    astro_mut_ids = all_dataset.loc[all_dataset.iloc[:, 0] == 'idhmut_ATC', 'TCGA ID'].values
-    oligodendro_ids = all_dataset.loc[all_dataset.iloc[:, 0] == 'ODG', 'TCGA ID'].values
-
-    # Filter the full_data DataFrame by the extracted IDs
-    astro_wt_data = full_data[full_data['TCGA ID'].isin(astro_wt_ids)]
-    astro_mut_data = full_data[full_data['TCGA ID'].isin(astro_mut_ids)]
-    oligodendro_data = full_data[full_data['TCGA ID'].isin(oligodendro_ids)]
-
-    # Example of printing the shapes of filtered datasets
-    print(f'Astro WT Data Shape: {astro_wt_data.shape}')
-    print(f'Astro Mut Data Shape: {astro_mut_data.shape}')
-    print(f'Oligodendro Data Shape: {oligodendro_data.shape}')
-
-    # Extract grade_groups and hazards
-    grade_status = data['Grade Status']
-    hazards = data['Hazards']
-    censor_status = data['Censor Status']
-    survival_times = data['Survival Time']
-    survival_times = survival_times // 365
-
-    # Kaplan-Meier curve by grade status
-    kmf = KaplanMeierFitter()
-
-    # Example hazard values and threshold probabilities
+    data['TCGA ID'] = data['Patient ID']
+    data_merge = data.merge(all_dataset, on='TCGA ID', how='left')
+    full_data = data_merge.copy()
+    grade_status = full_data['Grade Status']
+    hazards = full_data['Hazards']
+    censor_status = full_data['Censor Status']
+    survival_times = full_data['Survival Time'] // 365
+    mutation_status = full_data['Histomolecular subtype']
     thresholds = [33, 66, 100]
     # Assign grades to hazard values
     percentiles_of_hazards = np.percentile(hazards, thresholds)
     # Assign grades to hazard values based on percentiles
     grade_status_predicted = np.array([hazard2grade(h, percentiles_of_hazards) for h in hazards])
+    return grade_status, grade_status_predicted, hazards, censor_status, survival_times, mutation_status
 
-    colours = ['green', 'blue', 'red']
+# Kaplan-Meier curve by grade status
+kmf = KaplanMeierFitter()
+grade_status, grade_status_predicted, hazards, censor_status, survival_times, mutation_status = km_data_organiser('pathgraphomic_fusion')
+colours = ['green', 'blue', 'red']
 
-    for grade, color in zip([0,1,2], colours):
-        mask = (grade_status == grade)
-        kmf.fit(durations=survival_times[mask], event_observed=censor_status[mask], label=f'True Grade {grade+2}')
-        # kmf.plot_survival_function(ci_show=False, color=color, linestyle='-')
-        kmf.survival_function_
-        axs[j].plot(kmf.survival_function_, linestyle="--", color=color)
-        if j == 0:
-            axs[j].set_ylabel('Overall\nProportion Surviving')
+# First plot for survival by true grade status
+for grade, color in zip([0,1,2], colours):
+    mask = (grade_status == grade)
+    kmf.fit(durations=survival_times[mask], event_observed=censor_status[mask])
+    # kmf.plot_survival_function(ci_show=False, color=color, linestyle='-')
+    kmf.survival_function_
+    axs[0].plot(kmf.survival_function_, linestyle="-", color=color, label=f'Grade {grade_mapping.get(str(grade))}')   
+    axs[0].set_title(rf'$\textbf{{True Grade}}$', fontsize=14)
+    # Perform log-rank test
+    if grade < 2:  # Compare with next grade
+        next_grade_mask = (grade_status == grade + 1)
+        results = logrank_test(survival_times[mask], survival_times[next_grade_mask], event_observed_A=censor_status[mask], event_observed_B=censor_status[next_grade_mask])
+        p_value_text = f'P-Value: {results.p_value:.2e}'
+        axs[0].text(5, 0.2 - 0.1*grade, p_value_text, fontsize=12, color='black')
 
-    for grade, color in zip([0,1,2], colours):
-        if grade ==2:
-            grade = 2 or 3
+# Second plot for survival by mutation status 
+for mut_status, color in zip(["ODG","idhmut_ATC","idhwt_ATC"], colours):
+    mask = (mutation_status == mut_status)
+    kmf.fit(durations=survival_times[mask], event_observed=censor_status[mask])
+    # kmf.plot_survival_function(ci_show=False, color=color, linestyle='--')
+    kmf.survival_function_
+    axs[1].plot(kmf.survival_function_, linestyle="-", color=color, label = mol_subtype_mapping.get(mut_status, mut_status))
+    axs[1].set_xlim([0, 15])
+    axs[1].set_title(rf'$\textbf{{Molecular Subtype}}$', fontsize=14)
+
+# Perform log-rank test for molecular subtypes
+odg_mask = (mutation_status == "ODG")
+idhmut_mask = (mutation_status == "idhmut_ATC")
+idhwt_mask = (mutation_status == "idhwt_ATC")
+
+results_odg_idhmut = logrank_test(survival_times[odg_mask], survival_times[idhmut_mask], event_observed_A=censor_status[odg_mask], event_observed_B=censor_status[idhmut_mask])
+results_odg_idhwt = logrank_test(survival_times[odg_mask], survival_times[idhwt_mask], event_observed_A=censor_status[odg_mask], event_observed_B=censor_status[idhwt_mask])
+
+p_values_text = [
+    f'P-Value: {results_odg_idhmut.p_value:.2e}',
+    f'P-Value: {results_odg_idhwt.p_value:.2e}',
+]
+
+for i, text in enumerate(p_values_text):
+    axs[1].text(5, 0.2 - 0.1*i, text, fontsize=12, color='black')
+
+grade_status_path, grade_status_predicted_path, hazards_path, censor_status_path, survival_times_path, mutation_status_path = km_data_organiser('path')
+# Third plot stratifying by hazards from path network
+# Example hazard values and threshold probabilities
+for grade, color in zip([0,1,2], colours):
+    if grade ==2:
+        grade = 2 or 3
+    mask = (grade_status_predicted_path == grade)
+    kmf.fit(durations=survival_times_path[mask], event_observed=censor_status_path[mask])
+    # kmf.plot_survival_function(ci_show=False, color=color, linestyle='--')
+    kmf.survival_function_
+    axs[2].plot(kmf.survival_function_, linestyle="-", color=color, label=f'Histology CNN ({histology_mapping.get(str(grade), str(grade))})')
+    axs[2].set_xlim([0, 15])
+    axs[2].set_title(rf'$\textbf{{Histology CNN}}$', fontsize=14)
+    # Perform log-rank test
+    if grade < 2:  # Compare with next grade
+        next_grade_mask = (grade_status_predicted_path == grade + 1)
+        results = logrank_test(survival_times_path[mask], survival_times_path[next_grade_mask], event_observed_A=censor_status_path[mask], event_observed_B=censor_status_path[next_grade_mask])
+        p_value_text = f'P-Value: {results.p_value:.2e}'
+        axs[2].text(5, 0.2 - 0.1*grade, p_value_text, fontsize=12, color='black')
+
+for grade, color in zip([0,1,2], colours):
+    if grade == 2:
+        mask = (grade_status_predicted == 2) | (grade_status_predicted == 3)
+    else:
         mask = (grade_status_predicted == grade)
-        kmf.fit(durations=survival_times[mask], event_observed=censor_status[mask], label=f'Predicted Grade {grade+2} from Hazards')
-        # kmf.plot_survival_function(ci_show=False, color=color, linestyle='--')
-        kmf.survival_function_
-        axs[j].plot(kmf.survival_function_, linestyle="-", color=color)
-        axs[j].set_xlim([0, 15])
-        axs[j].set_title(f'{model_name}')
-    axs[j].set_xlabel('Survival time (years)')
+    kmf.fit(durations=survival_times[mask], event_observed=censor_status[mask])
+    # kmf.plot_survival_function(ci_show=False, color=color, linestyle='--')
+    kmf.survival_function_
+    axs[3].plot(kmf.survival_function_, linestyle="-", color=color, label=f'Pathomic F. ({histology_mapping.get(str(grade), str(grade))})')
+    axs[3].set_xlim([0, 15])
+    axs[3].set_title(rf'$\textbf{{Pathgraphomic}}$', fontsize=14)
 
-# plot_filepath = os.path.join(checkpoints_dir, eval_folder, f'kaplan_meier_curves.png')
-# plt.savefig(plot_filepath)
-plt.show()
-# plt.close()
+    # Perform log-rank test
+    if grade < 2:  # Compare with next grade
+        next_grade_mask = (grade_status_predicted == grade + 1)
+        results = logrank_test(survival_times[mask], survival_times[next_grade_mask], event_observed_A=censor_status[mask], event_observed_B=censor_status[next_grade_mask])
+        p_value_text = f'P-Value: {results.p_value:.2e}'
+        axs[3].text(5, 0.2 - 0.1*grade, p_value_text, fontsize=12, color='black')
+
+
+for j in range(4):
+    axs[j].set_xlabel('Survival time (years)', fontsize=14)
+    axs[0].set_ylabel('Proportion Surviving', fontsize=14)
+    axs[j].legend()
+
+plot_filepath = os.path.join(checkpoints_dir, eval_folder, f'kaplan_meier_curves_overall.png')
+plt.savefig(plot_filepath)
+plt.close()
 
 
 # %%
@@ -688,32 +808,35 @@ fig, axes = plt.subplots(1, 5, figsize=(20, 5))  # Adjust the figsize to suit yo
 for j, model in enumerate(['graph', 'path', 'omic', 'pathomic_fusion', 'pathgraphomic_fusion']):
     data_saver= []
     for k in range(1,6):
+        split = 'test'
         data = load_and_process_survival_data(model, k, use_patch, split, ckpt_name='./checkpoints/TCGA_GBMLGG/surv_15_rnaseq')
         data_saver.append(data)
+
     data = pd.concat(data_saver, ignore_index=True)
+
     ax = axes[j]
     model_name = model_mappings.get(model, 'Unknown Model') 
-    ## Z-scored hazards histograms
+
     # Calculate the z-scores of the 'Hazards'
-    data['Hazards_z'] = zscore(data['Hazards'])
+    data['Hazards_z'] = data['Hazards']
 
     # Split the data based on the survival time with low and high being thresholded by 5 years
     low = data[data['Survival Time'] <= 365*5]
     high = data[data['Survival Time'] > 365*5]
 
     # Histogram plotting with normalized density using plt directly
-    sns.histplot(low['Hazards_z'], ax=ax,bins=10, kde=False, stat="density", color="red", alpha=0.5, edgecolor="black", label='<= 5 Years')
-    sns.histplot(high['Hazards_z'], ax=ax, bins=10,kde=False, stat="density",color="blue", alpha=0.5, edgecolor="black", label='> 5 Years')
+    sns.histplot(low['Hazards_z'], ax=ax,bins=8, kde=False, stat="density", color="red", alpha=0.5, edgecolor="black", label=r'$\leq 5$ Years')
+    sns.histplot(high['Hazards_z'], ax=ax, bins=8,kde=False, stat="density",color="blue", alpha=0.5, edgecolor="black", label=r'$> 5$ Years')
 
     # Adjusting the visual layout of the plot
-    ax.set_xlabel('Hazard Values (Z-score)')
+    ax.set_xlabel('Hazard Values')
     ax.set_ylabel('Density')
     # ax.spines["right"].set_visible(False)
     # ax.spines["top"].set_visible(False)
     # ax.tick_params(axis='y', which='both', labelsize=10)
     # ax.tick_params(axis='x', which='both', labelsize=10)
-    ax.set_xlim([-2, 2])
-    ax.set_ylim([0, 4])
+    ax.set_xlim([-4, 4])
+    ax.set_ylim([0, 1])
 
     # Title for each subplot
     ax.set_title(f'{model_name}')
@@ -725,55 +848,85 @@ for j, model in enumerate(['graph', 'path', 'omic', 'pathomic_fusion', 'pathgrap
 plt.tight_layout()   
 plot_filepath = os.path.join(checkpoints_dir, eval_folder, f'hazard_histograms.png')
 
-plt.show()
 plt.savefig(plot_filepath)
 plt.close()
 
 # %%
-#### HISTOGRAM HAZARD PLOTS BY PATIENT SUBTYPE
-fig, axes = plt.subplots(1, 5, figsize=(20, 5))  # Adjust the figsize to suit your display needs
-for j, model in enumerate(['graph', 'path', 'omic', 'pathomic_fusion', 'pathgraphomic_fusion']):
-    data_saver= []
-    for k in range(1,5):
-        data = load_and_process_survival_data(model, k, use_patch, split, ckpt_name='./checkpoints/TCGA_GBMLGG/surv_15_rnaseq')
-        data_saver.append(data)
-    data = pd.concat(data_saver, ignore_index=True)
-    ax = axes[j]
-    model_name = model_mappings.get(model, 'Unknown Model') 
-    ## Z-scored hazards histograms
-    # Calculate the z-scores of the 'Hazards'
-    data['Hazards_z'] = zscore(data['Hazards'])
+#### HAZARD PLOTS BY PATIENT SUBTYPE
+# Define model mappings
+model_mappings = {
+    'graph': 'Graph GCN',
+    'path': 'Histology CNN',
+    'omic': 'Genomic SNN',
+    'pathomic_fusion': 'Pathomic Fusion (CNN+SNN)',
+    'graphomic_fusion': 'Graphomic Fusion (GCN+SNN)',
+    'pathgraphomic_fusion': 'Pathgraphomic Fusion (CNN+GCN+SNN)',
+    'pathgraph_fusion': 'Pathgraph Fusion (CNN+GCN)',
+    'omicomic_fusion': 'Omicomic Fusion (SNN+SNN)', 
+    'pathpath_fusion': 'Pathpath Fusion (CNN+CNN)',  
+    'graphgraph_fusion': 'Graphgraph Fusion (GCN+GCN)'  
+}
 
-    # Split the data based on the survival time with low and high being thresholded by 5 years
-    low = data[data['Survival Time'] <= 365*5]
-    high = data[data['Survival Time'] > 365*5]
+# Load datasets
+df1 = pd.read_csv('./data/TCGA_GBMLGG/all_dataset.csv')
+df2 = pd.read_csv('./data/TCGA_GBMLGG/grade_data.csv')
+df = df1.merge(df2, on='TCGA ID', how='left') 
 
-    # Histogram plotting with normalized density using plt directly
-    sns.histplot(low['Hazards_z'], ax=ax,bins=10, kde=False, stat="density", color="red", alpha=0.5, edgecolor="black", label='<= 5 Years')
-    sns.histplot(high['Hazards_z'], ax=ax, bins=10,kde=False, stat="density",color="blue", alpha=0.5, edgecolor="black", label='> 5 Years')
+split = 'test'
+use_patch = '_'
+fig, ax = plt.subplots(figsize=(10, 5))
 
-    # Adjusting the visual layout of the plot
-    ax.set_xlabel('Hazard Values (Z-score)')
-    ax.set_ylabel('Density')
-    # ax.spines["right"].set_visible(False)
-    # ax.spines["top"].set_visible(False)
-    # ax.tick_params(axis='y', which='both', labelsize=10)
-    # ax.tick_params(axis='x', which='both', labelsize=10)
-    ax.set_xlim([-2, 2])
-    ax.set_ylim([0, 4])
+model = 'path'  # Replace with model of choice
+data_saver = []
+for k in range(1, 6):
+    data = load_and_process_survival_data(model, k, use_patch, split, ckpt_name='./checkpoints/TCGA_GBMLGG/surv_15_rnaseq')
+    data_saver.append(data)
+data = pd.concat(data_saver, ignore_index=True)
+data['TCGA ID'] = data['Patient ID']
+data_merge = data.merge(df, on='TCGA ID', how='left')
+full_data = data_merge.copy()
+model_name = model_mappings.get(model, 'Unknown Model')
+data = full_data
 
-    # Title for each subplot
-    ax.set_title(f'{model_name}')
+# Filter data by tumor type
+metadata, all_dataset = getCleanAllDataset(use_rnaseq=True)
+astro_wt_ids = all_dataset.loc[all_dataset.iloc[:, 0] == 'idhwt_ATC', 'TCGA ID'].values
+astro_mut_ids = all_dataset.loc[all_dataset.iloc[:, 0] == 'idhmut_ATC', 'TCGA ID'].values
+oligodendro_ids = all_dataset.loc[all_dataset.iloc[:, 0] == 'ODG', 'TCGA ID'].values
 
-    # Adding legend to each subplot
-    ax.legend(title="Survival Time")
+astro_wt_data = full_data[full_data['TCGA ID'].isin(astro_wt_ids)]
+astro_mut_data = full_data[full_data['TCGA ID'].isin(astro_mut_ids)]
+oligodendro_data = full_data[full_data['TCGA ID'].isin(oligodendro_ids)]
 
-# Adjust layout to prevent overlapping
-plt.tight_layout()   
-eval_folder = 'evaluation'
-plot_filepath = os.path.join(checkpoints_dir, eval_folder, f'hazard_histograms.png')
+# Combine data for plotting
+combined_data = pd.concat([
+    astro_wt_data.assign(TumorType='IDH-wt astrocytoma'),
+    astro_mut_data.assign(TumorType='IDH-mut astrocytoma'),
+    oligodendro_data.assign(TumorType='Oligodendroglioma')
+])
 
-plt.show()
+
+# Convert grade to Roman numerals
+def grade_to_roman(grade):
+    roman_numerals = {2: 'II', 3: 'III', 4: 'IV'}
+    return roman_numerals.get(grade, str(grade))
+
+combined_data['Grade'] = combined_data['Grade'].apply(grade_to_roman)
+
+# Calculate z-scores overall
+combined_data['Hazard (z-score)'] = combined_data['Hazards']
+
+# Plotting using swarmplot
+sns.swarmplot(data=combined_data, x='TumorType', y='Hazard (z-score)', hue='Grade', 
+              palette={'II': 'green', 'III': 'blue', 'IV': 'red'}, ax=ax, size=5)
+
+ax.set_title(rf'$\textbf{{{model_name}}}$')
+ax.set_xlabel('')
+ax.set_ylabel('Hazards')
+ax.set_ylim(-4, 4)
+ax.legend(title='Grade')
+plt.tight_layout()
+plot_filepath = os.path.join('./checkpoints/TCGA_GBMLGG/', 'evaluation', f'hazard_swarm_{model}.png')
 plt.savefig(plot_filepath)
 plt.close()
 

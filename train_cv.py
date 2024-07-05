@@ -22,10 +22,10 @@ from option_file_converter import parse_opt_file
 
 checkpoints_dir = "./checkpoints/TCGA_GBMLGG"
 # Change for each run
-results_folder = "results_embeddings"
+results_folder = "fresh_results"
 
-for setting in ["surv_15_rnaseq"]:
-    for mode in ["omic"]:
+for setting in ["grad_15"]:
+    for mode in ["omic", "graph", "pathomic_fusion", "pathgraph_fusion", "graphomic_fusion", "pathgraphomic_fusion"]:
         file_path = os.path.join(checkpoints_dir, setting, mode)
         opt = parse_opt_file(os.path.join(file_path, "train_opt.txt"))
 
@@ -154,7 +154,7 @@ for setting in ["surv_15_rnaseq"]:
             #     print("Train-Test Split already made.")
 
             ### 3.1 Trains Model
-            model, optimizer, metric_logger = train(opt, data, device, k=1)
+            model, optimizer, metric_logger = train(opt, data, device, k)
             # In running this this, files are saved like this: %s_%d%s%d_pred_test.pkl" % (opt.model_name, k, use_patch, epoch)
             df = save_metric_logger(metric_logger, opt, results_folder, k)
             plots_train_vs_test(df, opt, results_folder, k)
@@ -238,7 +238,7 @@ for setting in ["surv_15_rnaseq"]:
             )
 
             pickle.dump(
-                pred_train,
+                (pred_train, data_cv),
                 open(
                     os.path.join(
                         opt.checkpoints_dir,
@@ -250,7 +250,7 @@ for setting in ["surv_15_rnaseq"]:
                 ),
             )
             pickle.dump(
-                pred_test,
+                (pred_test, data_cv),
                 open(
                     os.path.join(
                         opt.checkpoints_dir,

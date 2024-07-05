@@ -51,7 +51,7 @@ def getGradTestPats_GBMLGG(k, ckpt_name='./checkpoints/TCGA_GBMLGG/grad_15/', mo
     # data_cv_path = './data/TCGA_GBMLGG/splits/gbmlgg15cv_%s_%d_%d_%d%s.pkl' % (roi_dir, ignore_missing_moltype, ignore_missing_histype, use_vgg_features, use_rnaseq)
     for k in range(k, k+1):
         # './checkpoints/TCGA_GBMLGG/grad_15/path/path_1_pred_test.pkl'
-        pred_test, data_cv  = pickle.load(open(ckpt_name+'%s/%s_%d%spred_%s_data.pkl' % (model, model, k, use_patch, split), 'rb'))
+        pred_test, data_cv  = pickle.load(open(ckpt_name+'%s/%s_%d%spred_%s.pkl' % (model, model, k, use_patch, split), 'rb'))
         #pred_test = [risk_pred_all, survtime_all, censor_all, probs_all, gt_all]
         # Transposes the grade predictions and converts them to a data frame
         grad_all = pred_test[3].T
@@ -76,6 +76,7 @@ def getGradTestPats_GBMLGG(k, ckpt_name='./checkpoints/TCGA_GBMLGG/grad_15/', mo
     return pats
 
 
+# This code aggregated predictions based on patient name
 def getPredAggGrad_GBMLGG(k, ckpt_name='./checkpoints/TCGA_GBMLGG/grad_15/', model='omic', split='test', use_rnaseq=False, 
                          agg_type='max',  label='all'):
     
@@ -93,7 +94,7 @@ def getPredAggGrad_GBMLGG(k, ckpt_name='./checkpoints/TCGA_GBMLGG/grad_15/', mod
     
     for k in range(k,k+1):
         ### Loads Prediction Pickle File. Registers predictions with TCGA IDs for the test split.
-        pred_test, data_cv  = pickle.load(open(ckpt_name+'%s/%s_%d%spred_%s_data.pkl' % (model, model, k, use_patch, split), 'rb'))
+        pred_test, data_cv  = pickle.load(open(ckpt_name+'%s/%s_%d%spred_%s.pkl' % (model, model, k, use_patch, split), 'rb'))
         
         # probabilities
         grad_pred = pred_test[3].T
@@ -132,7 +133,6 @@ def getPredAggGrad_GBMLGG(k, ckpt_name='./checkpoints/TCGA_GBMLGG/grad_15/', mod
         # Store the labels and predictions in a list
         y_label.append(grad_gt)
         y_pred.append(grad_pred)
-        
     return y_label, y_pred
 
 ### Survival Outcome Prediction
@@ -144,7 +144,7 @@ def hazard2grade(hazard, p):
 
 def load_and_process_survival_data(model, k, use_patch, split, ckpt_name='./checkpoints/TCGA_GBMLGG/surv_15_rnaseq/'):
     # Load the data from a pickle file
-    with open(f'{ckpt_name}/{model}/{model}_{k}{use_patch}pred_{split}_data.pkl', 'rb') as file:
+    with open(f'{ckpt_name}/{model}/{model}_{k}{use_patch}pred_{split}.pkl', 'rb') as file:
         pred_test, data_cv = pickle.load(file)
 
     # Extract data from the cross-validation splits
