@@ -1,39 +1,33 @@
+## This script is used to generate the integrated gradients for the top 20 features for the entire dataset, astrocytoma wt, astrocytoma mut, and oligodendroglioma for TCGA-GBMLGG genomic SNN
+
 import os
 import logging
 import numpy as np
 import pickle
 import torch
-
-# Env
-from data_loaders import *
-from options import parse_args
-from train_test_captum import retrieve_captum_data
-
+from training_core.data_loaders import *
+from additional_core.options import parse_args
+from training_core.train_test_captum import retrieve_captum_data
 import torch_geometric
 print(torch_geometric.__version__)
-
-from result_plots import save_metric_logger, plots_train_vs_test
-from filter_patients import filter_unique_patients
-from option_file_converter import parse_opt_file
-
+from additional_core.result_plots import save_metric_logger, plots_train_vs_test
+from additional_core.filter_patients import filter_unique_patients
+from additional_core.option_file_converter import parse_opt_file
 from captum.attr import IntegratedGradients
-from networks_captum import define_net
+from training_core.networks_captum import define_net
 import matplotlib.pyplot as plt
-
-from utils import getCleanAllDataset
+from additional_core.utils import getCleanAllDataset
 import seaborn as sns
 from matplotlib.colors import LinearSegmentedColormap
 
-### 1. Initializes parser and device
-# This also prints opt but this is before the changes
-# opt = parse_args()
-
 checkpoints_dir = "./checkpoints/TCGA_GBMLGG"
-# Change for each run
+
 results_folder = "results_3"
 
-# Bring across data 
 def info_importer():
+    """
+    Function to import the data from the checkpoints directory based on the train.opt.txt file and additional settings
+    """
     file_path = os.path.join(checkpoints_dir, setting, mode)
     opt = parse_opt_file(os.path.join(file_path, "train_opt.txt"))
     opt.use_rnaseq = 0
@@ -79,8 +73,6 @@ def info_importer():
     ignore_missing_histype = 1 if "grad" in opt.task else 0
     ignore_missing_moltype = 1 if "omic" in opt.mode else 0
 
-    # Use_vgg_features defaults to 0 - need to make sure I'm doing this the right way around
-    # Does 1 mean use pre-trained embeddings? Should this be set to 1?
     use_patch, roi_dir = (
         ("_patch_", "all_st_patches_512") if opt.use_vgg_features else ("_", "all_st")
     )
@@ -104,18 +96,16 @@ def info_importer():
 
     # Extracts the cv_splits from the data
     data_cv_splits = data_cv['cv_splits']
-    results = []
-
-    ### 3. Sets-Up Main Loop
     k = 1
     data = data_cv_splits[k]
     return data, opt, device, k
 
+# Model on which to do gradient attribution
 setting = "surv_15_rnaseq"
 mode = "omic"
 
-# %%
 data, opt, device, k = info_importer()
+
 # Load in the trained model
 checkpoint = torch.load(
     os.path.join(
@@ -215,8 +205,6 @@ label_mapping = {
 
 }
 
-
-
 # Plotting
 def plot_captum(top_attributions_df, top_features_data_df, top_features, save_name):
     plt.figure(figsize=(10, 8))
@@ -262,18 +250,6 @@ def plot_captum(top_attributions_df, top_features_data_df, top_features, save_na
 
 top_attributions_df, top_features_data_df, top_features = formatting_attributes(attributions, omic_comb)
 plot_captum(top_attributions_df, top_features_data_df, top_features, 'integrated_gradients_all')
-
-# # Clean up the attributions and the data based on the patname
-# # Adding for idh mutation
-# df1 = pd.read_csv('./data/TCGA_GBMLGG/all_dataset.csv')
-# # Adding for histology
-# df2 = pd.read_csv('./data/TCGA_GBMLGG/grade_data.csv')
-# df = df1.merge(df2, on='TCGA ID', how='left') 
-
-# # Identify which TCGA_IDs belong to different categories of patients
-# astro_wt = df[(df['idh mutation'] == 0) & (df['Histology'] != 'oligodendroglioma')]['TCGA ID']
-# astro_mut = df[(df['idh mutation'] == 1) & (df['Histology'] != 'oligodendroglioma')]['TCGA ID']
-# oligodendro = df[(df['Histology'] == 'oligodendroglioma')]['TCGA ID']
 
 metadata, all_dataset = getCleanAllDataset(use_rnaseq=True)
 astro_wt = all_dataset[all_dataset.iloc[:, 0]=='idhwt_ATC']['TCGA ID']

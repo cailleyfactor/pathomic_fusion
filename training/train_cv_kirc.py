@@ -1,28 +1,24 @@
+## This code is for training the models on the TCGA KIRC dataset. It is a modified version of the training/train_cv.py file.
 import os
 import logging
 import numpy as np
 import pickle
 import torch
-
-# Env
-from data_loaders import *
-from options import parse_args
-from train_test_kirc import train, test
+from training_core.data_loaders import *
+from additional_core.options import parse_args
+from training_core.train_test_kirc import train, test
 
 import torch_geometric
 print(torch_geometric.__version__)
 
-from result_plots import save_metric_logger, plots_train_vs_test
-from filter_patients import filter_unique_patients
-from option_file_converter import parse_opt_file
+from additional_core.result_plots import save_metric_logger, plots_train_vs_test
+from additional_core.filter_patients import filter_unique_patients
+from additional_core.option_file_converter import parse_opt_file
 
-### 1. Initializes parser and device
-# This also prints opt but this is before the changes
-# opt = parse_args()
 checkpoints_dir = "./checkpoints/TCGA_KIRC"
 results_folder = "results_2"
 
-# Decide number of folds for training
+# Decides number of folds for training
 for k in range(1, 5):
     for mode in ["omic", "clin", "path", "clinomic_fusion", "pathclin_fusion", "pathomic_fusion","pathclinomic_fusion"]:
         setting = "surv_15"
@@ -121,26 +117,14 @@ for k in range(1, 5):
             "************** SPLIT (%d/%d) **************" % (k, len(data_cv_splits.items()))
         )
         print("*******************************************")
-        # %%
 
-        # # This is currently: ./checkpoints/TCGA_GBMLGG/grad_15/pathgraphomic_fusion/pathgraphomic_fusion_0_patch_pred_train.pkl
-        # if os.path.exists(
-        #     os.path.join(
-        #         opt.checkpoints_dir,
-        #         opt.exp_name,
-        #         opt.model_name,
-        #         "%s_%d_patch_pred_train.pkl" % (opt.model_name, k+1),
-        #     )
-        # ):
-        #     print("Train-Test Split already made.")
-
-        ### 3.1 Trains Model
+        # Trains Model
         model, optimizer, metric_logger = train(opt, data, device, k)
         # In running this this, files are saved like this: %s_%d%s%d_pred_test.pkl" % (opt.model_name, k, use_patch, epoch)
         df = save_metric_logger(metric_logger, opt, results_folder, k)
         plots_train_vs_test(df, opt, results_folder,k)
 
-        ### 3.2 Evalutes Train + Test Error, and Saves Model
+        # Evalutes Train + Test Error, and Saves Model
         (
             loss_train,
             cindex_train,
@@ -154,7 +138,7 @@ for k in range(1, 5):
             opt, model, data, "test", device
         )
 
-        # These print at the end - 
+        # These print at the end of the training
         if opt.task == "surv":
             print(
                 "[Final] Apply model to training set: C-Index: %.10f, P-Value: %.10e"
@@ -193,7 +177,7 @@ for k in range(1, 5):
             )
             results.append(grad_acc_test)
 
-        ### 3.3 Saves Model
+        # Saves Model
         if len(opt.gpu_ids) > 0 and torch.cuda.is_available():
             model_state_dict = model.module.cpu().state_dict()
         else:
