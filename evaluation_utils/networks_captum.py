@@ -38,9 +38,9 @@ from torch_geometric.transforms.normalize_features import NormalizeFeatures
 
 # Env
 from fusion import *
-from additional_core.options import parse_args
-from additional_core.utils import *
-from additional_core.option_file_converter import parse_opt_file
+from evaluation_utils.options import parse_args
+from evaluation_utils.utils import *
+from evaluation_utils.option_file_converter import parse_opt_file
 
 # Bring across data 
 def info_importer():
