@@ -8,7 +8,7 @@ from torch.utils.data import RandomSampler
 
 from data_loaders import PathgraphomicDatasetLoader, PathgraphomicFastDatasetLoader
 from networks import define_net, define_reg, define_optimizer, define_scheduler
-from additional_core.utils import (
+from evaluation_utils.utils import (
     unfreeze_unimodal,
     CoxLoss,
     CIndex_lifeline,
@@ -37,8 +37,6 @@ def train(opt, data, device, k):
         ("_patch_", "all_st_patches_512") if opt.use_vgg_features else ("_", "all_st")
     )
 
-    # Augmented dataset
-    # opt.mode is carried through
     custom_data_loader = (
         PathgraphomicFastDatasetLoader(opt, data, split="train", mode=opt.mode)
         if opt.use_vgg_features

@@ -4,16 +4,16 @@ import logging
 import numpy as np
 import pickle
 import torch
-from training_core.data_loaders import *
-from additional_core.options import parse_args
-from training_core.train_test_kirc import train, test
+from training_utils.data_loaders import *
+from evaluation_utils.options import parse_args
+from training_utils.train_test_kirc import train, test
 
 import torch_geometric
 print(torch_geometric.__version__)
 
-from additional_core.result_plots import save_metric_logger, plots_train_vs_test
-from additional_core.filter_patients import filter_unique_patients
-from additional_core.option_file_converter import parse_opt_file
+from evaluation_utils.result_plots import save_metric_logger, plots_train_vs_test
+from evaluation_utils.filter_patients import filter_unique_patients
+from evaluation_utils.option_file_converter import parse_opt_file
 
 checkpoints_dir = "./checkpoints/TCGA_KIRC"
 results_folder = "results_2"

@@ -8,7 +8,7 @@ from torch.utils.data import RandomSampler
 
 from data_loaders import KircClinDatasetLoader
 from networks_kirc import define_net, define_reg, define_optimizer, define_scheduler
-from additional_core.utils import (
+from evaluation_utils.utils import (
     unfreeze_unimodal,
     CoxLoss,
     CIndex_lifeline,

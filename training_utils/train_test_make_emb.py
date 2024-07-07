@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch.utils.data import RandomSampler
 from data_loaders import MakeEmbeddingsDatasetLoader
 from networks_make_emb import define_net, define_reg, define_optimizer, define_scheduler
-from additional_core.utils import (
+from evaluation_utils.utils import (
     unfreeze_unimodal,
     CoxLoss,
     CIndex_lifeline,

@@ -38,8 +38,8 @@ from torch_geometric.transforms.normalize_features import NormalizeFeatures
 
 # Env
 from fusion import *
-from additional_core.options import parse_args
-from additional_core.utils import *
+from evaluation_utils.options import parse_args
+from evaluation_utils.utils import *
 
 
 ################

@@ -7,8 +7,8 @@ import torch.nn.functional as F
 from torch.utils.data import RandomSampler
 
 from data_loaders import PathgraphomicDatasetLoader, PathgraphomicFastDatasetLoader
-from networks_captum import define_net, define_reg, define_optimizer, define_scheduler
-from additional_core.utils import (
+from evaluation_utils.networks_captum import define_net, define_reg, define_optimizer, define_scheduler
+from evaluation_utils.utils import (
     unfreeze_unimodal,
     CoxLoss,
     CIndex_lifeline,
@@ -26,23 +26,8 @@ import os
 from captum.attr import IntegratedGradients
 
 def retrieve_captum_data(opt, data, device, k):
-    # nn.deterministic = True
-    # torch.manual_seed_all(2019)
-    # torch.manual_seed(2019)
-    # random.seed(2019)
-
     model = define_net(opt, k)
     opt.batch_size = len(data)
-    # print(model)
-    # print("Number of Trainable Parameters: %d" % count_parameters(model))
-    # print("Activation Type:", opt.act_type)
-    # print("Optimizer Type:", opt.optimizer_type)
-    # print("Regularization Type:", opt.reg_type)
-
-    # use_patch, roi_dir = (
-    #     ("_patch_", "all_st_patches_512") if opt.use_vgg_features else ("_", "all_st")
-    # )
-
 
     # Augmented dataset
     # opt.mode is carried through
@@ -75,18 +60,8 @@ def retrieve_captum_data(opt, data, device, k):
             train_loader
         ):
 
-
-            # censor = censor.to(device) if "surv" in opt.task else censor
-            # grade = grade.to(device) if "grad" in opt.task else grade
             x_omic = x_omic.to(device)
             x_path = x_path.to(device)
             x_grph = x_grph.to(device)
-
-
-            # # kwargs not working for path thus doing it this way
-            # if opt.mode == "omic":
-            #     pred = model(x_omic.to(device))
-            # else:
-            #     pred = model(x_omic.to(device))
 
     return x_omic, x_path, x_grph

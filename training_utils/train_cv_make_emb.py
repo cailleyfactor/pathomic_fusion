@@ -6,21 +6,17 @@ import torch
 
 # Env
 from data_loaders import *
-from additional_core.options import parse_args
+from evaluation_utils.options import parse_args
 from train_test_make_emb import train, test
 
 import torch_geometric
 print(torch_geometric.__version__)
 
-from additional_core.result_plots import save_metric_logger, plots_train_vs_test
-from additional_core.filter_patients import filter_unique_patients
-from additional_core.option_file_converter import parse_opt_file
+from evaluation_utils.result_plots import save_metric_logger, plots_train_vs_test
+from evaluation_utils.filter_patients import filter_unique_patients
+from evaluation_utils.option_file_converter import parse_opt_file
 
-### 1. Initializes parser and device
-# This also prints opt but this is before the changes
-# opt = parse_args()
 checkpoints_dir = "./checkpoints/TCGA_GBMLGG"
-# results_folder = "results_2"
 
 for mode in ["path"]:
     setting = "surv_15_rnaseq"
@@ -48,7 +44,7 @@ for mode in ["path"]:
     opt.batch_size = 128
     opt.mode = "path"
 
-	### 2. Initializes Data
+	### Initializes Data
     ignore_missing_histype = 1 if 'grad' in opt.task else 0
     ignore_missing_moltype = 1 if 'omic' in opt.mode else 0
 
@@ -68,15 +64,8 @@ for mode in ["path"]:
     data_cv_splits = pickle.load(open(data_cv_path, "rb"))
     results = []
 
-    ### 3. Sets-Up Main Loop
-    # data = data_cv_splits[k]
     k=1
     data = data_cv_splits['cv_splits'][k]
 
-    ### 3.1 Trains Model
     model, optimizer, metric_logger = train(opt, data, device, k)
-
-    # # In running this this, files are saved like this: %s_%d%s%d_pred_test.pkl" % (opt.model_name, k, use_patch, epoch)
-    # df = save_metric_logger(metric_logger, opt, results_folder, k)
-    # plots_train_vs_test(df, opt, results_folder, k)
 

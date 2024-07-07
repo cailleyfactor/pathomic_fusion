@@ -8,18 +8,16 @@ import torch
 # Env
 from networks_use_emb import define_net
 from data_loaders import *
-from additional_core.options import parse_args
+from evaluation_utils.options import parse_args
 from train_test_use_emb import train, test
-from additional_core.option_file_converter import parse_opt_file
+from evaluation_utils.option_file_converter import parse_opt_file
 
 checkpoints_dir = "./checkpoints/TCGA_GBMLGG"
 setting = 'surv_15_rnaseq'
 
 for mode in ["omic", "graph", "path", "pathomic_fusion", "graphomic_fusion", "pathgraphomic_fusion", "pathgraph_fusion"]:
-	### 1. Initializes parser and device
 	file_path = os.path.join(checkpoints_dir, setting, mode)
 	opt = parse_opt_file(os.path.join(file_path, "train_opt.txt"))
- 	# Set device to MPS if GPU is available
 	device = torch.device("cpu")
 
 	# Adding in changes away from default opmodel options
@@ -75,7 +73,7 @@ for mode in ["omic", "graph", "path", "pathomic_fusion", "graphomic_fusion", "pa
 	data_cv_splits = data_cv['cv_splits']
 	results = []
 
-	### 3. Sets-Up Main Loop
+	# Sets-Up Main Loop
 	for k in range(1,6):
 		data = data_cv_splits[k]
 		### 3. Sets-Up Main Loop
@@ -97,7 +95,7 @@ for mode in ["omic", "graph", "path", "pathomic_fusion", "graphomic_fusion", "pa
 		model.load_state_dict(model_state_dict)
 
 
-		### 3.2 Evalutes Train + Test Error, and Saves Model
+		# Evalutes Train + Test Error, and Saves Model
 		loss_test, cindex_test, pvalue_test, surv_acc_test, grad_acc_test, pred_test = test(opt, model, data, 'test', device)
 
 		if opt.task == 'surv':
@@ -108,9 +106,6 @@ for mode in ["omic", "graph", "path", "pathomic_fusion", "graphomic_fusion", "pa
 			print("[Final] Apply model to testing set: Loss: %.10f, Acc: %.4f" % (loss_test, grad_acc_test))
 			logging.info("[Final] Apply model to testing set: Loss: %.10f, Acc: %.4f" % (loss_test, grad_acc_test))
 			results.append(grad_acc_test)
-
-			# ### 3.3 Saves Model
-			# pickle.dump(pred_test, open(os.path.join(opt.checkpoints_dir, opt.exp_name, opt.model_name, '%s_%d%spred_test.pkl' % (opt.model_name, k, use_patch)), 'wb'))
 
 	print('Split Results:', results)
 	print("Average:", np.array(results).mean())

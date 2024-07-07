@@ -1,7 +1,7 @@
 ## This file contains the fusion models for the KIRC dataset
 import torch
 import torch.nn as nn
-from additional_core.utils import init_max_weights
+from evaluation_utils.utils import init_max_weights
 
 class BilinearFusion(nn.Module):
     def __init__(self, skip=1, use_bilinear=1, gate1=1, gate2=1, dim1=32, dim2=32, scale_dim1=1, scale_dim2=1, mmhid=64, dropout_rate=0.25):
