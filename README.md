@@ -2,7 +2,7 @@
 ## Description
 This repository is based on a repository from Harvard University's Mahmood Lab available at https://github.com/mahmoodlab/PathomicFusion. The corresponding paper is: Richard J. Chen, Ming Y. Lu, Jingwen Wang, Drew F. K. Williamson, Scott J. Rodig, Neal I. Lindeman, Faisal Mahmood. "Pathomic Fusion: An Integrated Framework for Fusing Histopathology and Genomic Features for Cancer Diagnosis and Prognosis." arXiv preprint arXiv:1912.08937 (2020). Available at: https://arxiv.org/abs/1912.08937. 
 
-This project ammends this existing codebase as a substantial protion of their existing code could not be run in its available form or was lacking functionality mentioned in the paper. The evaluation methodology needed to be substantially modified to run and no code was available for running TCGA-KIRC directly, as the available repository was structured for TCGA-GBMLGG. New functionality was also added for utilising clinical data and clinical networks for TCGA-KIRC. The project report and an executive summary are available in the folder entitled report_and_summary in the root directory. The executive summary is 996 words and the dissertation/report is 6428 words.
+This project ammends this existing codebase as a substantial portion of their existing code could not be run in its available form or was lacking functionality mentioned in the paper. The evaluation methodology needed to be substantially modified to run and no code was available for running TCGA-KIRC directly, as the available repository was structured for TCGA-GBMLGG. New functionality was also added for utilising clinical data and clinical networks for TCGA-KIRC. The project report and an executive summary are available in the folder entitled report_and_summary in the root directory. The executive summary is 996 words and the dissertation/report is 6428 words.
 
 ## Repository structure
 The code base structure is explained below: 
@@ -44,7 +44,7 @@ The code base structure is explained below:
 ## Usage
 Jupyter notebooks for the evaluation code are available in the root directory. 
 
-To run the code for training, first clone the repository from git. To make the environment for running the project a n environment.yml file is provided with the necessary packages needed to run the environment. Create this environment using: conda env create -f environment.yml
+To run the code for training, first clone the repository from git. To make the environment for running the project an environment.yml file is provided with the necessary packages needed to run the environment. Create this environment using: conda env create -f environment.yml
 
 A folder entitled 'checkpoints' needs to be created in the root directory and the trained checkpoints from this reproduction can be downloaded here: https://1drv.ms/f/s!AorA9DLtGnxlhMNWgd0K-rRJSO13BQ?e=WwqAox
 A folder entitled 'data' needs to be created also in the root directory and the relevant data is available from the Mahmood lab here in the 'data' directory: https://drive.google.com/drive/folders/1swiMrz84V3iuzk8x99vGIBd5FCVncOlf
