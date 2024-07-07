@@ -1,10 +1,14 @@
-# Cite ChatGPT for this !!
 import re
 
 class Config:
+    """
+    A simple class to hold configuration options as attributes. """
     pass
 
 def parse_opt_file(file_path):
+    """
+    Parse an option file and return a Config object with the options as attributes.
+    """
     opt = Config()
 
     with open(file_path, "r") as file:

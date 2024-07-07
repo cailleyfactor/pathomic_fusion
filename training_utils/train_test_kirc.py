@@ -1,14 +1,17 @@
 import random
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from tqdm import tqdm
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
 from torch.utils.data import RandomSampler
-
-from data_loaders import KircClinDatasetLoader
-from networks_kirc import define_net, define_reg, define_optimizer, define_scheduler
-from evaluation_utils.utils import (
+from training_utils.data_loaders import KircClinDatasetLoader
+from training_utils.networks_kirc import define_net, define_reg, define_optimizer, define_scheduler
+from training_utils.utils import (
     unfreeze_unimodal,
     CoxLoss,
     CIndex_lifeline,

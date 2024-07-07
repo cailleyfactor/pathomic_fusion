@@ -1,7 +1,7 @@
 ## This file contains the code for the fusion layers used in the multimodal fusion model for the TCGA-GBMLGG dataset
 import torch
 import torch.nn as nn
-from evaluation_utils.utils import init_max_weights
+from training_utils.utils import init_max_weights
 
 
 class BilinearFusion(nn.Module):

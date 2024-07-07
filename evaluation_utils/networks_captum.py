@@ -1,3 +1,5 @@
+## This script modifies the genomic SNN network in order to utilise integrated gradients for the genomic SNN
+
 # Base / Native
 import csv
 from collections import Counter
@@ -8,10 +10,12 @@ import gc
 import logging
 import math
 import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import pdb
 import pickle
 import random
-import sys
 # import tables
 import time
 from tqdm import tqdm
@@ -37,10 +41,10 @@ from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
 from torch_geometric.transforms.normalize_features import NormalizeFeatures
 
 # Env
-from fusion import *
-from evaluation_utils.options import parse_args
-from evaluation_utils.utils import *
-from evaluation_utils.option_file_converter import parse_opt_file
+from training_utils.fusion import *
+from core.options import parse_args
+from training_utils.utils import *
+from core.option_file_converter import parse_opt_file
 
 # Bring across data 
 def info_importer():

@@ -1,24 +1,11 @@
-# Base / Native
-import csv
-from collections import Counter
-import copy
-import json
-import functools
-import gc
-import logging
-import math
 import os
-import pdb
-import pickle
-import random
 import sys
-# import tables
-import time
 from tqdm import tqdm
-
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) # Add the root directory to the sys.path
 # Numerical / Array
 import numpy as np
-
+# Base / Native
+from collections import Counter
 # Torch
 import torch
 import torch.nn as nn
@@ -35,12 +22,10 @@ from torch_geometric.nn import GCNConv, SAGEConv, GraphConv, GatedGraphConv, GAT
 from torch_geometric.nn import GraphConv, TopKPooling, SAGPooling
 from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
 from torch_geometric.transforms.normalize_features import NormalizeFeatures
-
 # Env
-from fusion import *
-from evaluation_utils.options import parse_args
-from evaluation_utils.utils import *
-
+from training_utils.fusion import *
+from data_utils.options import parse_args
+from training_utils.utils import *
 
 ################
 # Network Utils
@@ -51,9 +36,7 @@ def define_net(opt, k):
     init_max = True if opt.init_type == "max" else False
 
     if opt.mode == "path":
-        # changed num_classes to opt.label_dim
         net = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim)
-        # net = get_vgg(path_dim=opt.path_dim, act=act, label_dim=opt.label_dim)
     elif opt.mode == "graph":
         net = GraphNet(grph_dim=opt.grph_dim, dropout_rate=opt.dropout_rate, GNN=opt.GNN, use_edges=opt.use_edges, pooling_ratio=opt.pooling_ratio, act=act, label_dim=opt.label_dim, init_max=init_max)
     elif opt.mode == "omic":

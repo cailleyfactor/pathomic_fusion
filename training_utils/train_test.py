@@ -1,3 +1,6 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) # Add the root directory to the sys.path
 import random
 from tqdm import tqdm
 import numpy as np
@@ -6,9 +9,9 @@ import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
 from torch.utils.data import RandomSampler
 
-from data_loaders import PathgraphomicDatasetLoader, PathgraphomicFastDatasetLoader
-from networks import define_net, define_reg, define_optimizer, define_scheduler
-from evaluation_utils.utils import (
+from training_utils.data_loaders import PathgraphomicDatasetLoader, PathgraphomicFastDatasetLoader
+from training_utils.networks import define_net, define_reg, define_optimizer, define_scheduler
+from training_utils.utils import (
     unfreeze_unimodal,
     CoxLoss,
     CIndex_lifeline,
@@ -21,7 +24,6 @@ from evaluation_utils.utils import (
 # from GPUtil import showUtilization as gpu_usage
 import pdb
 import pickle
-import os
 
 def train(opt, data, device, k):
     model = define_net(opt, k)
@@ -130,9 +132,8 @@ def train(opt, data, device, k):
                 acc = pred.eq(grade.view_as(pred)).sum().item()
                 batch_size = pred.size(0)
                 accuracy = acc / batch_size
-
-                # Epoch acc calculation
-                grad_acc_epoch += pred.eq(grade.view_as(pred)).sum().item()
+                
+                grad_acc_epoch += pred.eq(grade.view_as(pred)).sum().item() # Epoch acc calculation
 
             # Check if should print out training progress
             if (
@@ -167,8 +168,6 @@ def train(opt, data, device, k):
                     )
 
         scheduler.step()
-        # lr = optimizer.param_groups[0]['lr']
-        # print('learning rate = %.7f' % lr)
 
         if opt.measure or epoch == (opt.niter + opt.niter_decay - 1):
             loss_epoch /= len(train_loader)

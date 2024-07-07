@@ -10,10 +10,10 @@ import pandas as pd
 pd.options.display.max_rows = 999
 
 # Env
-from utils import CI_pm
-from utils import cox_log_rank
-from utils import getCleanAllDataset, addHistomolecularSubtype
-from utils import makeKaplanMeierPlot
+from training_utils.utils import CI_pm
+from training_utils.utils import cox_log_rank
+from training_utils.utils import getCleanAllDataset, addHistomolecularSubtype
+from training_utils.utils import makeKaplanMeierPlot
 
 
 def trainCox(dataroot = './data/TCGA_GBMLGG/', ckpt_name='./checkpoints/surv_15_cox/', model='cox_omic', penalizer=1e-4):

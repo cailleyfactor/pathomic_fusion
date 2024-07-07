@@ -1,3 +1,5 @@
+import os
+import sys
 import random
 from tqdm import tqdm
 import numpy as np
@@ -5,10 +7,9 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
 from torch.utils.data import RandomSampler
-
-from data_loaders import PathgraphomicDatasetLoader, PathgraphomicFastDatasetLoader
+from training_utils.data_loaders import PathgraphomicDatasetLoader, PathgraphomicFastDatasetLoader
 from evaluation_utils.networks_captum import define_net, define_reg, define_optimizer, define_scheduler
-from evaluation_utils.utils import (
+from training_utils.utils import (
     unfreeze_unimodal,
     CoxLoss,
     CIndex_lifeline,
@@ -17,20 +18,16 @@ from evaluation_utils.utils import (
     mixed_collate,
     count_parameters,
 )
-
-# from GPUtil import showUtilization as gpu_usage
 import pdb
 import pickle
 import os
-
 from captum.attr import IntegratedGradients
 
 def retrieve_captum_data(opt, data, device, k):
+    """
+    Retrieve the data for the Captum evaluation"""
     model = define_net(opt, k)
     opt.batch_size = len(data)
-
-    # Augmented dataset
-    # opt.mode is carried through
     custom_data_loader = (
         PathgraphomicFastDatasetLoader(opt, data, split="train", mode=opt.mode)
         if opt.use_vgg_features

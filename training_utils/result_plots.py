@@ -1,16 +1,15 @@
 import pandas as pd
 import os
-
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
-
 import os
 import datetime
-
 current_time = datetime.datetime.now()
 
 def save_metric_logger(metric_logger, opt, results_folder, k):
+    """
+    Save the metric logger to a CSV file in the specified directory"""
     # Initialize the data dictionary with the metrics
     metric_data = {
         "train_loss": metric_logger["train"]["loss"],
@@ -42,7 +41,8 @@ def save_metric_logger(metric_logger, opt, results_folder, k):
     return df
 
 def plots_train_vs_test(df, opt, results_folder, k):
-
+    """
+    Create and save plots for train vs test loss and other metrics"""
     for metric in ['loss', 'cindex', 'pvalue', 'surv_acc', 'grad_acc']:
         # Extract train loss and test loss from the DataFrame
         train_metric = df[f'train_{metric}']

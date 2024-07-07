@@ -9,12 +9,12 @@ from PIL import Image
 from sklearn import preprocessing
 
 # Env
-from networks import define_net
-from utils import getCleanAllDataset
+from training_utils.networks import define_net
+from training_utils.utils import getCleanAllDataset
 import torch
 from torchvision import transforms
 from options import parse_gpuids
-from option_file_converter import parse_opt_file, print_options
+from data_utils.option_file_converter import parse_opt_file, print_options
 
 ### Initializes parser and data
 """

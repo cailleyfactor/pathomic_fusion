@@ -4,17 +4,21 @@ import numpy as np
 import random
 import pickle
 import torch
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Env
-from networks_use_emb import define_net
+from training_utils.networks import define_net
 from data_loaders import *
-from evaluation_utils.options import parse_args
-from train_test_use_emb import train, test
-from evaluation_utils.option_file_converter import parse_opt_file
+from data_utils.options import parse_args
+from training_utils.train_test import train, test
+from data_utils.option_file_converter import parse_opt_file
 
+# Define checkpoint directory and appropriate settings
 checkpoints_dir = "./checkpoints/TCGA_GBMLGG"
 setting = 'surv_15_rnaseq'
 
+# Sets up loop for selecting the appropriate data
 for mode in ["omic", "graph", "path", "pathomic_fusion", "graphomic_fusion", "pathgraphomic_fusion", "pathgraph_fusion"]:
 	file_path = os.path.join(checkpoints_dir, setting, mode)
 	opt = parse_opt_file(os.path.join(file_path, "train_opt.txt"))
@@ -55,7 +59,7 @@ for mode in ["omic", "graph", "path", "pathomic_fusion", "graphomic_fusion", "pa
 		opt.use_rnaseq = 0
 		opt.input_size_omic = 80
 
-	### 2. Initializes Data
+	# Initializes Data
 	ignore_missing_histype = 1 if 'grad' in opt.task else 0
 	ignore_missing_moltype = 1 if 'omic' in opt.mode else 0
 
@@ -76,7 +80,6 @@ for mode in ["omic", "graph", "path", "pathomic_fusion", "graphomic_fusion", "pa
 	# Sets-Up Main Loop
 	for k in range(1,6):
 		data = data_cv_splits[k]
-		### 3. Sets-Up Main Loop
 		# for k, data in data_cv_splits.items():
 		print("*******************************************")
 		print("************** SPLIT (%d/%d) **************" % (k, len(data_cv_splits.items())))
@@ -84,18 +87,16 @@ for mode in ["omic", "graph", "path", "pathomic_fusion", "graphomic_fusion", "pa
 		load_path = os.path.join(opt.checkpoints_dir, opt.exp_name, opt.model_name, '%s_%d.pt' % (opt.model_name, k))
 		model_ckpt = torch.load(load_path, map_location=device)
 
-		#### Loading Env
+		# Loading Env
 		model_state_dict = model_ckpt['model_state_dict']
 		if hasattr(model_state_dict, '_metadata'): del model_state_dict._metadata
 
 		model = define_net(opt, None)
 		if isinstance(model, torch.nn.DataParallel): model = model.module
-
 		print('Loading the model from %s' % load_path)
 		model.load_state_dict(model_state_dict)
 
-
-		# Evalutes Train + Test Error, and Saves Model
+		# Evalutes Test Error
 		loss_test, cindex_test, pvalue_test, surv_acc_test, grad_acc_test, pred_test = test(opt, model, data, 'test', device)
 
 		if opt.task == 'surv':

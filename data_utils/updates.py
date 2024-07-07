@@ -4,8 +4,6 @@ import os
 from tqdm import tqdm
 
 # This code helps get around the PyG error
-
-
 def reformat_graph_data(data):
     """
     ensure that the object structure is correct
