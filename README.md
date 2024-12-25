@@ -2,7 +2,7 @@
 ## Description
 This repository is based on a repository from Harvard University's Mahmood Lab available at https://github.com/mahmoodlab/PathomicFusion. The corresponding paper is: Richard J. Chen, Ming Y. Lu, Jingwen Wang, Drew F. K. Williamson, Scott J. Rodig, Neal I. Lindeman, Faisal Mahmood. "Pathomic Fusion: An Integrated Framework for Fusing Histopathology and Genomic Features for Cancer Diagnosis and Prognosis." arXiv preprint arXiv:1912.08937 (2020). Available at: https://arxiv.org/abs/1912.08937. 
 
-This project ammends this existing codebase as a substantial portion of their existing code could not be run in its available form or was lacking functionality mentioned in the paper. The evaluation methodology needed to be substantially modified to run and no code was available for running TCGA-KIRC directly, as the available repository was structured for TCGA-GBMLGG. New functionality was also added for utilising clinical data and clinical networks for TCGA-KIRC. The project report and an executive summary are available in the folder entitled report_and_summary in the root directory. The executive summary is 996 words and the dissertation/report is 6428 words.
+This project amends this existing codebase as a substantial portion of their existing code could not be run in its available form or was lacking functionality mentioned in the paper. The evaluation methodology needed to be substantially modified to run and no code was available for running TCGA-KIRC directly, as the available repository was structured for TCGA-GBMLGG. New functionality was also added for utilising clinical data and clinical networks for TCGA-KIRC.
 
 ## Repository structure
 The code base structure is explained below: 
@@ -54,8 +54,5 @@ To train the models, run the following for TCGA-GBMLGG and TCGA-KIRC respectivel
 $python train_cv.py 
 $python train_cv_kirc.py 
 
-## Auto-generation tool citations
-ChatGPT was used for tasks such as generating code with improved syntax for handling pandas dataframes and other similar tasks for the data engineering of new data. It was used to help write code in order to pull from the opt.txt files with the prompt explaining the structure of the opt.txt files. ChatGPT was also used to help improve plot appearance for matplotlib and seaborn plots in the evaluation methodology. It was also used in the report to help improve the flow of some of the sentences alongside small segments of drafts of the report. Github copilot was occasionally used for commenting the code.
-
 ## License
-The Mahmood lab licenses this code under the GNU GPLv3 License - see the LICENSE.txt file for details.
+The Mahmood lab licenses this code under the GNU GPLv3 License - see the LICENSE.txt file for details. 
