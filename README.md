@@ -1,6 +1,6 @@
 # ReadMe
 ## Description
-This repository is based on a repository from Harvard University's Mahmood Lab available at https://github.com/mahmoodlab/PathomicFusion. The corresponding paper is: Richard J. Chen, Ming Y. Lu, Jingwen Wang, Drew F. K. Williamson, Scott J. Rodig, Neal I. Lindeman, Faisal Mahmood. "Pathomic Fusion: An Integrated Framework for Fusing Histopathology and Genomic Features for Cancer Diagnosis and Prognosis." arXiv preprint arXiv:1912.08937 (2020). Available at: https://arxiv.org/abs/1912.08937. 
+This repository is cloned and extended upon from a repository from Harvard University's Mahmood Lab available at https://github.com/mahmoodlab/PathomicFusion. The corresponding paper is: Richard J. Chen, Ming Y. Lu, Jingwen Wang, Drew F. K. Williamson, Scott J. Rodig, Neal I. Lindeman, Faisal Mahmood. "Pathomic Fusion: An Integrated Framework for Fusing Histopathology and Genomic Features for Cancer Diagnosis and Prognosis." arXiv preprint arXiv:1912.08937 (2020). Available at: https://arxiv.org/abs/1912.08937. 
 
 This project amends this existing codebase as a substantial portion of their existing code could not be run in its available form or was lacking functionality mentioned in the paper. The evaluation methodology needed to be substantially modified to run and no code was available for running TCGA-KIRC directly, as the available repository was structured for TCGA-GBMLGG. New functionality was also added for utilising clinical data and clinical networks for TCGA-KIRC.
 
